@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+wa_auth_info
+wa_auth_info_test
+uploads
+*.log
+.git
+.DS_Store

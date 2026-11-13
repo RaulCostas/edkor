@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: edkor-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-edkor_secure_pass_2026}
+      POSTGRES_DB: ${DB_NAME:-edkor}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./edkor-backend
+      dockerfile: Dockerfile
+    container_name: edkor-backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-edkor_secure_pass_2026}
+      DB_NAME: ${DB_NAME:-edkor}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-EDKOR MOTORS}
+    ports:
+      - "3001:3001"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_wa_auth:/app/wa_auth_info
+
+  frontend:
+    build:
+      context: ./edkor-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+    container_name: edkor-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  backend_wa_auth:
