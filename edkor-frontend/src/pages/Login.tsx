@@ -242,7 +242,7 @@ const Login = () => {
                 </div>
                 <input
                   id="email"
-                  type="email"
+                  type="text"
                   required
                   autoComplete="username"
                   value={formData.email}

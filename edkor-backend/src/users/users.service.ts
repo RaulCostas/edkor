@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -8,11 +8,38 @@ import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) { }
+
+  async onModuleInit() {
+    await this.seedDefaultAdmin();
+  }
+
+  async seedDefaultAdmin() {
+    try {
+      const count = await this.userRepository.count();
+      if (count === 0) {
+        console.log('[SEED] Base de datos vacía. Creando usuario Administrador inicial...');
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash('admin', saltRounds);
+
+        const adminUser = this.userRepository.create({
+          name: 'Administrador',
+          email: 'admin@edkormotors.com',
+          password: hashedPassword,
+          foto: '',
+          estado: 'activo',
+        });
+        await this.userRepository.save(adminUser);
+        console.log('[SEED] Usuario Administrador inicial creado (admin@edkormotors.com / admin).');
+      }
+    } catch (error) {
+      console.error('[SEED] Error al verificar/crear usuario inicial:', error);
+    }
+  }
 
   async create(createUserDto: CreateUserDto) {
     if (createUserDto.password) {
@@ -38,7 +65,12 @@ export class UsersService {
   }
 
   findByEmail(email: string) {
-    return this.userRepository.findOne({ where: { email }, relations: ['rol', 'personal', 'sucursal'] });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const whereConditions: any[] = [{ email: ILike(cleanEmail) }];
+    if (cleanEmail === 'admin') {
+      whereConditions.push({ email: ILike('admin@edkormotors.com') });
+    }
+    return this.userRepository.findOne({ where: whereConditions, relations: ['rol', 'personal', 'sucursal'] });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
