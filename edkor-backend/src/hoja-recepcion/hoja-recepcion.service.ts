@@ -60,7 +60,7 @@ export class HojaRecepcionService {
     return null;
   }
 
-  async create(createHojaRecepcionDto: CreateHojaRecepcionDto, sucursalId: number): Promise<HojaRecepcion> {
+  async create(createHojaRecepcionDto: CreateHojaRecepcionDto, sucursalId?: number | null): Promise<HojaRecepcion> {
     let marcaId = createHojaRecepcionDto.idmarca_auto || null;
     let vehiculoMarca = createHojaRecepcionDto.vehiculo_marca || '';
     if (!marcaId && vehiculoMarca) {
@@ -89,7 +89,7 @@ export class HojaRecepcionService {
       idmarca_auto: marcaId || undefined,
       marca_auto: marcaId ? ({ id: marcaId } as any) : null,
       vehiculo_marca: vehiculoMarca,
-      sucursal_id: sucursalId,
+      sucursal_id: (sucursalId || createHojaRecepcionDto.sucursal_id || undefined) as any,
       tipo_orden: createHojaRecepcionDto.tipo_orden_id ? { id: createHojaRecepcionDto.tipo_orden_id } as any : null,
       seguro: createHojaRecepcionDto.idseguro ? { id: createHojaRecepcionDto.idseguro } as any : null,
       idseguro: createHojaRecepcionDto.idseguro || undefined,
@@ -102,7 +102,7 @@ export class HojaRecepcionService {
     // Auto increment nro per sucursal
     if (!newHoja.nro) {
         const lastHoja = await this.hojaRecepcionRepository.findOne({
-            where: { sucursal_id: sucursalId },
+            where: sucursalId ? { sucursal_id: sucursalId } : {},
             order: { nro: 'DESC' },
         });
         newHoja.nro = (lastHoja?.nro || 0) + 1;
@@ -195,16 +195,20 @@ export class HojaRecepcionService {
     }
   }
 
-  async findAll(sucursalId: number): Promise<HojaRecepcion[]> {
+  async findAll(sucursalId?: number | null): Promise<HojaRecepcion[]> {
+    const where: any = {};
+    if (sucursalId) {
+      where.sucursal_id = sucursalId;
+    }
     return await this.hojaRecepcionRepository.find({
-      where: { sucursal_id: sucursalId },
+      where,
       order: { created_at: 'DESC' },
       relations: ['tipo_orden', 'marca_auto', 'asesor', 'jefe_mecanico', 'mecanico', 'seguro', 'inspector']
     });
   }
 
-  async findPendientesOrden(sucursalId: number): Promise<HojaRecepcion[]> {
-    return await this.hojaRecepcionRepository
+  async findPendientesOrden(sucursalId?: number | null): Promise<HojaRecepcion[]> {
+    const qb = this.hojaRecepcionRepository
       .createQueryBuilder('hoja')
       .leftJoinAndSelect('hoja.marca_auto', 'marca_auto')
       .leftJoinAndSelect('hoja.tipo_orden', 'tipo_orden')
@@ -212,11 +216,14 @@ export class HojaRecepcionService {
       .leftJoinAndSelect('hoja.inspector', 'inspector')
       .leftJoinAndSelect('hoja.asesor', 'asesor')
       .leftJoin('ordenes_trabajo', 'ot', 'ot.id_hoja_recepcion = hoja.id')
-      .where('hoja.sucursal_id = :sucursalId', { sucursalId })
-      .andWhere('ot.id IS NULL')
-      .andWhere('hoja.estado != :anulado', { anulado: 'Anulado' })
-      .orderBy('hoja.created_at', 'DESC')
-      .getMany();
+      .where('ot.id IS NULL')
+      .andWhere('hoja.estado != :anulado', { anulado: 'Anulado' });
+
+    if (sucursalId) {
+      qb.andWhere('hoja.sucursal_id = :sucursalId', { sucursalId });
+    }
+
+    return await qb.orderBy('hoja.created_at', 'DESC').getMany();
   }
 
   async findByPlaca(placa: string): Promise<any | null> {
@@ -281,18 +288,22 @@ export class HojaRecepcionService {
     return null;
   }
 
-  async findOne(id: number, sucursalId: number): Promise<HojaRecepcion> {
+  async findOne(id: number, sucursalId?: number | null): Promise<HojaRecepcion> {
+    const where: any = { id };
+    if (sucursalId) {
+      where.sucursal_id = sucursalId;
+    }
     const hoja = await this.hojaRecepcionRepository.findOne({
-      where: { id, sucursal_id: sucursalId },
+      where,
       relations: ['tipo_orden', 'marca_auto', 'asesor', 'jefe_mecanico', 'mecanico', 'seguro', 'inspector']
     });
     if (!hoja) {
-      throw new NotFoundException(`Hoja de recepcion con id ${id} no encontrada en esta sucursal`);
+      throw new NotFoundException(`Hoja de recepcion con id ${id} no encontrada`);
     }
     return hoja;
   }
 
-  async update(id: number, updateHojaRecepcionDto: UpdateHojaRecepcionDto, sucursalId: number): Promise<HojaRecepcion> {
+  async update(id: number, updateHojaRecepcionDto: UpdateHojaRecepcionDto, sucursalId?: number | null): Promise<HojaRecepcion> {
     const hoja = await this.findOne(id, sucursalId);
     const estadoActual = (hoja.estado || '').toLowerCase();
     if (estadoActual === 'finalizado' || estadoActual === 'terminado' || estadoActual === 'orden cerrada' || estadoActual === 'cerrada') {
@@ -360,7 +371,7 @@ export class HojaRecepcionService {
     return await this.findOne(id, sucursalId);
   }
 
-  async remove(id: number, sucursalId: number): Promise<void> {
+  async remove(id: number, sucursalId?: number | null): Promise<void> {
     const hoja = await this.findOne(id, sucursalId);
     const estadoActual = (hoja.estado || '').toLowerCase();
     if (estadoActual === 'finalizado' || estadoActual === 'terminado' || estadoActual === 'orden cerrada' || estadoActual === 'cerrada') {

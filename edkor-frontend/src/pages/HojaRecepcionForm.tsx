@@ -40,6 +40,7 @@ import type { MarcaAuto } from "../types/marcaAuto";
 import type { Seguro } from "../types/seguro";
 import type { Inspector } from "../types/inspector";
 import VehicleDiagramCanvas from "../components/VehicleDiagramCanvas";
+import SearchableSelect from "../components/common/SearchableSelect";
 const EXTERIOR_ITEMS = [
   "Faros delanteros",
   "Stop",
@@ -1025,9 +1026,11 @@ const HojaRecepcionForm = () => {
                   Marca
                 </label>
                 <div className="flex items-center gap-2 min-w-0">
-                  <select
+                  <SearchableSelect
+                    className="flex-1 min-w-0"
+                    placeholder="-- Seleccione una Marca --"
+                    searchPlaceholder="Buscar marca (ej: Toyota, Nissan...)"
                     required
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-[#3498db] transition-colors text-sm truncate"
                     value={
                       formData.idmarca_auto ||
                       marcasAuto.find(
@@ -1037,8 +1040,8 @@ const HojaRecepcionForm = () => {
                       )?.id ||
                       ""
                     }
-                    onChange={(e) => {
-                      const selectedId = e.target.value ? Number(e.target.value) : undefined;
+                    onChange={(val) => {
+                      const selectedId = val ? Number(val) : undefined;
                       const selectedMarca = marcasAuto.find((m) => m.id === selectedId);
                       setFormData({
                         ...formData,
@@ -1046,14 +1049,11 @@ const HojaRecepcionForm = () => {
                         vehiculo_marca: selectedMarca?.marca || "",
                       });
                     }}
-                  >
-                    <option value="">-- Seleccione una Marca --</option>
-                    {marcasAuto.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.marca}
-                      </option>
-                    ))}
-                  </select>
+                    options={marcasAuto.map((m) => ({
+                      value: m.id,
+                      label: m.marca,
+                    }))}
+                  />
                   <button
                     type="button"
                     onClick={() => {

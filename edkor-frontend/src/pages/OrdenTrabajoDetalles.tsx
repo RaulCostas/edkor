@@ -19,6 +19,7 @@ import { normalizeItems } from '../components/taller/MantenimientoDetalleModal';
 import { useAuth } from '../context/AuthContext';
 import { getLocalDateString, formatDate } from '../utils/dateUtils';
 import { API_BASE_URL } from '../config';
+import SearchableSelect from '../components/common/SearchableSelect';
 
 
 interface OrdenTrabajoDetallesProps {
@@ -2093,23 +2094,18 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                             <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 Seleccionar Trabajo (Arancel Taller)
                                             </label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                    <FileText size={18} className="text-gray-400" />
-                                                </div>
-                                                <select
-                                                    value={formData.idprecio_taller}
-                                                    onChange={(e) => handleSelectPrecioTaller(e.target.value)}
-                                                    className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                                >
-                                                    <option value="">Seleccione trabajo...</option>
-                                                    {preciosTaller.map(p => (
-                                                        <option key={p.id} value={p.id}>
-                                                            {p.detalle} (Bs {Number(p.precio).toFixed(2)})
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                            <SearchableSelect
+                                                value={formData.idprecio_taller}
+                                                onChange={(val) => handleSelectPrecioTaller(String(val))}
+                                                placeholder="Seleccione trabajo..."
+                                                searchPlaceholder="Buscar trabajo por nombre o precio..."
+                                                options={preciosTaller.map(p => ({
+                                                    value: String(p.id),
+                                                    label: `${p.detalle} (Bs ${Number(p.precio).toFixed(2)})`,
+                                                    sublabel: `Bs ${Number(p.precio).toFixed(2)}`
+                                                }))}
+                                                icon={<FileText size={18} className="text-gray-400" />}
+                                            />
                                         </div>
 
                                         {/* Seleccionar Repuesto de Inventario */}
@@ -2865,18 +2861,17 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                     <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                         {!isSeguro ? 'Precio Taller' : 'Precio Seguro'}
                                     </label>
-                                    <div className="relative">
-                                        <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                    <div>
                                         {!isSeguro ? (
-                                            <select
+                                            <SearchableSelect
                                                 value={editForm.idprecio_taller}
-                                                onChange={(e) => {
-                                                    const precio = preciosTaller.find(p => String(p.id) === String(e.target.value));
+                                                onChange={(val) => {
+                                                    const precio = preciosTaller.find(p => String(p.id) === String(val));
                                                     const esTercero = isCategoriaTercero(precio);
                                                     const costoTerceroVal = esTercero ? (precio?.total_costo ? Number(precio.total_costo) : 0) : 0;
                                                     setEditForm({
                                                         ...editForm,
-                                                        idprecio_taller: e.target.value,
+                                                        idprecio_taller: String(val || ''),
                                                         idprecio_seguro: '',
                                                         id_inventario: '',
                                                         detalle: precio ? precio.detalle : editForm.detalle,
@@ -2887,31 +2882,34 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                         total_costo: esTercero ? costoTerceroVal : (precio?.total_costo ? Number(precio.total_costo) : editForm.total_costo)
                                                     });
                                                 }}
-                                                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                            >
-                                                <option value="">Seleccione...</option>
-                                                {preciosTaller.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.detalle}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                placeholder="Seleccione trabajo..."
+                                                searchPlaceholder="Buscar trabajo por nombre o precio..."
+                                                options={preciosTaller.map(p => ({
+                                                    value: String(p.id),
+                                                    label: `${p.detalle} (Bs ${Number(p.precio).toFixed(2)})`,
+                                                    sublabel: `Bs ${Number(p.precio).toFixed(2)}`
+                                                }))}
+                                                icon={<FileText size={18} className="text-gray-400" />}
+                                            />
                                         ) : (
-                                            <select
-                                                value={editForm.idprecio_seguro}
-                                                onChange={(e) => setEditForm({ ...editForm, idprecio_seguro: e.target.value, idprecio_taller: '', id_inventario: '' })}
-                                                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                            >
-                                                <option value="">Seleccione...</option>
-                                                {preciosSegurosFiltrados.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.detalle}
-                                                    </option>
-                                                ))}
-                                                {preciosSegurosFiltrados.length === 0 && (
-                                                    <option value="" disabled>No hay aranceles para este seguro</option>
-                                                )}
-                                            </select>
+                                            <div className="relative">
+                                                <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                                <select
+                                                    value={editForm.idprecio_seguro}
+                                                    onChange={(e) => setEditForm({ ...editForm, idprecio_seguro: e.target.value, idprecio_taller: '', id_inventario: '' })}
+                                                    className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
+                                                >
+                                                    <option value="">Seleccione...</option>
+                                                    {preciosSegurosFiltrados.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.detalle}
+                                                        </option>
+                                                    ))}
+                                                    {preciosSegurosFiltrados.length === 0 && (
+                                                        <option value="" disabled>No hay aranceles para este seguro</option>
+                                                    )}
+                                                </select>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
