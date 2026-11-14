@@ -453,7 +453,9 @@ const EgresoList: React.FC = () => {
                     <div class="totals-container">
                         <div class="totals-title">Totales por Forma de Pago</div>
                         <div class="totals-grid">
-                            ${Object.entries(totals).map(([key, value]) => `
+                            ${Object.entries(totals)
+                                .filter(([_, value]) => value.bolivianos > 0 || value.dolares > 0)
+                                .map(([key, value]) => `
                                 <div class="total-card">
                                     <div class="total-header">
                                         ${key === 'Efectivo' ? '💵 ' :
@@ -469,6 +471,7 @@ const EgresoList: React.FC = () => {
                                     </div>
                                 </div>
                             `).join('')}
+                            ${Object.entries(totals).filter(([_, value]) => value.bolivianos > 0 || value.dolares > 0).length === 0 ? '<div style="color: #666; font-style: italic;">No hay totales para mostrar.</div>' : ''}
                         </div>
                     </div>
 
@@ -725,7 +728,9 @@ const EgresoList: React.FC = () => {
                 <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <h3 className="mb-2 text-base font-semibold text-gray-800 dark:text-gray-200">Totales por Forma de Pago (Según filtros)</h3>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {Object.entries(totals).map(([key, value]) => (
+                        {Object.entries(totals)
+                            .filter(([_, value]) => value.bolivianos > 0 || value.dolares > 0)
+                            .map(([key, value]) => (
                             <div key={key} className="p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm">
                                 <div className="font-bold mb-2 text-gray-600 dark:text-gray-300 capitalize flex items-center gap-2">
                                     <span>
@@ -745,7 +750,7 @@ const EgresoList: React.FC = () => {
                                 </div>
                             </div>
                         ))}
-                        {Object.keys(totals).length === 0 && (
+                        {Object.entries(totals).filter(([_, value]) => value.bolivianos > 0 || value.dolares > 0).length === 0 && (
                             <div className="text-gray-500 dark:text-gray-400 italic">No hay totales para mostrar.</div>
                         )}
                     </div>

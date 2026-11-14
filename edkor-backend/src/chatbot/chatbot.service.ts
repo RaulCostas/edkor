@@ -852,11 +852,29 @@ export class ChatbotService implements OnModuleInit, OnModuleDestroy {
     }
 
     async resetSession() {
-        await this.disconnect();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const authPath = path.resolve('wa_auth_info');
-        if (fs.existsSync(authPath)) {
-            fs.rmSync(authPath, { recursive: true, force: true });
+        try {
+            await this.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const authPath = path.resolve('wa_auth_info');
+            if (fs.existsSync(authPath)) {
+                // Eliminar el contenido de la carpeta en lugar de la carpeta misma
+                // (evita el error EBUSY en volúmenes montados en Docker / Linux)
+                const files = fs.readdirSync(authPath);
+                for (const file of files) {
+                    try {
+                        fs.rmSync(path.join(authPath, file), { recursive: true, force: true });
+                    } catch (e) {
+                        this.logger.warn(`No se pudo eliminar el archivo ${file}:`, e);
+                    }
+                }
+            }
+            this.status = 'disconnected';
+            this.qrCode = null;
+            this.pairingCode = null;
+            return { success: true, message: 'Sesión reiniciada correctamente' };
+        } catch (error: any) {
+            this.logger.error('Error al resetear la sesión del chatbot:', error);
+            throw error;
         }
     }
 }

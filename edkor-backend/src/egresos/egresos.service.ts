@@ -79,13 +79,8 @@ export class EgresosService {
 
         let allEgresosForTotals = await this.egresosRepository.find(findOptions);
 
-        // Initialize totals structure with requested keys
-        const totals: Record<string, { bolivianos: number; dolares: number }> = {
-            'Efectivo': { bolivianos: 0, dolares: 0 },
-            'Transferencia': { bolivianos: 0, dolares: 0 },
-            'QR': { bolivianos: 0, dolares: 0 },
-            'Debito': { bolivianos: 0, dolares: 0 }
-        };
+        // Inicializar estructura solo con formas de pago presentes en los egresos filtrados
+        const totals: Record<string, { bolivianos: number; dolares: number }> = {};
 
         allEgresosForTotals.forEach(egreso => {
             const monto = Number(egreso.monto);
@@ -94,7 +89,7 @@ export class EgresosService {
 
             let key = formaPagoName;
 
-            // Normalize keys to match initialized structure
+            // Normalizar nombres de formas de pago
             if (key.toUpperCase() === 'EFECTIVO') key = 'Efectivo';
             else if (key.toUpperCase() === 'QR') key = 'QR';
             else if (key.toUpperCase() === 'DEPOSITO' || key.toUpperCase() === 'DEPÓSITO' || key.toUpperCase() === 'TRANSFERENCIA') key = 'Transferencia';

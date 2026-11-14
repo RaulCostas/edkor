@@ -12,10 +12,11 @@ export class ChatbotController {
     }
 
     @Post('initialize')
-    async initialize(@Body() body: { phoneNumber?: string }) {
+    async initialize(@Body() body?: { phoneNumber?: string }) {
         console.log('ChatbotController: Received initialize request', body);
         try {
-            const result = await this.chatbotService.initialize(body.phoneNumber);
+            const phoneNumber = body?.phoneNumber;
+            const result = await this.chatbotService.initialize(phoneNumber);
             console.log('ChatbotController: Initialize success, result:', result);
             return result;
         } catch (error: any) {

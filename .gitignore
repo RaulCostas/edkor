@@ -40,6 +40,7 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local scripts
+# Local scripts and backups
 checkDiff.cjs
 restore.cjs
+backup*.sql

@@ -57,7 +57,7 @@ const ChatbotConfig: React.FC = () => {
   const handleInitialize = async () => {
     setLoading(true);
     try {
-      await api.post("/chatbot/initialize");
+      await api.post("/chatbot/initialize", {});
       fetchStatus();
     } catch (error: any) {
       const msg = error.response?.data?.message || error.message || "No se pudo iniciar el bot";
