@@ -31,4 +31,4 @@ RUN mkdir -p uploads wa_auth_info
 
 EXPOSE 3001
 
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main; else node dist/main; fi"]
