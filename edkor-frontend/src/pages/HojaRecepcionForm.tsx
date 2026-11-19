@@ -274,10 +274,6 @@ const HojaRecepcionForm = () => {
   };
 
   const handleOpenCamera = () => {
-    if ((formData.fotos?.length || 0) >= 4) {
-      Swal.fire("Atención", "Ya alcanzó el límite máximo de 4 fotos.", "warning");
-      return;
-    }
     if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function") {
       setCapturedPhotos([]);
       setShowCameraModal(true);
@@ -322,16 +318,10 @@ const HojaRecepcionForm = () => {
       Swal.fire("Atención", "Seleccione al menos una foto capturada.", "warning");
       return;
     }
-    setFormData((prev) => {
-      const combined = [...(prev.fotos || []), ...selected];
-      if (combined.length > 4) {
-        Swal.fire("Atención", "Solo se permiten subir hasta 4 fotos.", "warning");
-      }
-      return {
-        ...prev,
-        fotos: combined.slice(0, 4),
-      };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      fotos: [...(prev.fotos || []), ...selected],
+    }));
     handleCloseCameraModal();
   };
 
@@ -352,16 +342,10 @@ const HojaRecepcionForm = () => {
       });
     });
     Promise.all(promises).then((newFotos) => {
-      setFormData((prev) => {
-        const combined = [...(prev.fotos || []), ...newFotos];
-        if (combined.length > 4) {
-          Swal.fire("Atención", "Solo se permiten subir hasta 4 fotos.", "warning");
-        }
-        return {
-          ...prev,
-          fotos: combined.slice(0, 4),
-        };
-      });
+      setFormData((prev) => ({
+        ...prev,
+        fotos: [...(prev.fotos || []), ...newFotos],
+      }));
     });
     e.target.value = "";
   };

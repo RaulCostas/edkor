@@ -33,3 +33,18 @@ export const getPagoPedidos = async () => {
   const response = await api.get(ENDPOINT);
   return response.data;
 };
+
+export interface UpdatePagoPedidoData extends Partial<CreatePagoPedidoData> {}
+
+export const updatePagoPedido = async (
+  id: number | string,
+  data: UpdatePagoPedidoData
+) => {
+  const response = await api.patch(`${ENDPOINT}/${id}`, data);
+  return response.data;
+};
+
+export const deletePagoPedido = async (id: number | string) => {
+  const response = await api.delete(`${ENDPOINT}/${id}`);
+  return response.data;
+};

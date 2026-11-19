@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, Search, CheckCircle, Clock, Eye, Image as ImageIcon, X } from 'lucide-react';
+import { DollarSign, Search, CheckCircle, Clock, Eye, Image as ImageIcon, X, Pencil, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import type { MaterialPedido } from '../types/materialPedido';
 import { getMaterialPedidos } from '../services/materialPedidoService';
-import { getPagoPedidos } from '../services/pagoPedidoService';
+import { getPagoPedidos, deletePagoPedido } from '../services/pagoPedidoService';
 import PagoPedidoModal from '../components/PagoPedidoModal';
 import MaterialPedidoModal from './MaterialPedidoModal';
 import Pagination from '../components/Pagination';
@@ -42,6 +42,7 @@ const ProveedoresPagos = () => {
     // Modal State
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedPedidoForPayment, setSelectedPedidoForPayment] = useState<MaterialPedido | null>(null);
+    const [editingPago, setEditingPago] = useState<PagoPedido | null>(null);
 
     // Order Details Modal State
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -82,7 +83,46 @@ const ProveedoresPagos = () => {
     };
 
     const handlePaymentSuccess = () => {
+        setEditingPago(null);
+        setSelectedPedidoForPayment(null);
         loadData(); // Reload current tab data
+    };
+
+    const handleEditPayment = (pago: PagoPedido) => {
+        setEditingPago(pago);
+        setSelectedPedidoForPayment(pago.material_pedido || null);
+        setIsPaymentModalOpen(true);
+    };
+
+    const handleDeletePayment = async (pago: PagoPedido) => {
+        const provName = pago.material_pedido?.proveedor?.proveedor || '';
+        const result = await Swal.fire({
+            title: '¿Eliminar Pago?',
+            text: `Se eliminará el pago del pedido #${pago.material_pedido?.id || pago.id}${provName ? ` (${provName})` : ''}. El pedido volverá a figurar como pendiente de pago.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await deletePagoPedido(pago.id);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Eliminado',
+                    text: 'El pago ha sido eliminado correctamente y el pedido volvió a pendientes.',
+                    timer: 1600,
+                    showConfirmButton: false,
+                });
+                loadData();
+            } catch (error) {
+                console.error('Error eliminando pago:', error);
+                Swal.fire('Error', 'No se pudo eliminar el pago', 'error');
+            }
+        }
     };
 
     const formatDate = (dateString: string) => {
@@ -394,6 +434,20 @@ const ProveedoresPagos = () => {
                                                         >
                                                             <Eye size={16} />
                                                         </button>
+                                                        <button
+                                                            onClick={() => handleEditPayment(pago)}
+                                                            className="p-2 bg-amber-400 hover:bg-amber-500 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeletePayment(pago)}
+                                                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+                                                            title="Eliminar"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -432,9 +486,14 @@ const ProveedoresPagos = () => {
 
             <PagoPedidoModal
                 isOpen={isPaymentModalOpen}
-                onClose={() => setIsPaymentModalOpen(false)}
+                onClose={() => {
+                    setIsPaymentModalOpen(false);
+                    setSelectedPedidoForPayment(null);
+                    setEditingPago(null);
+                }}
                 onPaymentSuccess={handlePaymentSuccess}
                 pedido={selectedPedidoForPayment}
+                pagoToEdit={editingPago}
             />
 
             <MaterialPedidoModal

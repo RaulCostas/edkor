@@ -209,8 +209,11 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
     }
   };
 
-  const handleCreateTipo = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateTipo = (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const clean = nuevoTipoNombre.trim();
     if (!clean) return;
     const updated = Array.from(new Set([...tiposPersonal, clean]));
@@ -235,8 +238,11 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
     });
   };
 
-  const handleCreateArea = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateArea = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const clean = nuevaAreaNombre.trim();
     if (!clean) return;
     try {
@@ -244,7 +250,7 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
       const created = await createAreaPersonal({ area: clean, estado: "activo" });
       const data = await getAreasPersonal();
       setAreas(data.filter((a) => a.estado === "activo"));
-      setFormData((prev) => ({ ...prev, areaId: created.id }));
+      setFormData((prev) => ({ ...prev, areaId: String(created.id) }));
       setShowModalArea(false);
       setNuevaAreaNombre("");
       Swal.fire({
@@ -282,7 +288,8 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
     }
   };
   return (
-    <form onSubmit={handleSubmit} className="p-6">
+    <>
+      <form onSubmit={handleSubmit} className="p-6">
       {" "}
       <div className="flex items-center justify-between mb-6">
         {" "}
@@ -918,6 +925,7 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
           <Save size={20} /> {submitting ? "Guardando..." : "Guardar"}
         </button>
       </div>
+    </form>
 
       {/* Modal: Nuevo Tipo de Personal */}
       {showModalTipo && (
@@ -1065,6 +1073,6 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
           </div>
         </div>
       )}
-    </form>
+    </>
   );
 };

@@ -3,20 +3,34 @@ import { X, Calendar, FileText, DollarSign, CreditCard, Hash, Plus, Upload, Tras
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { getFormasPago, createFormaPago } from '../services/formaPagoService';
-import { createPagoPedido } from '../services/pagoPedidoService';
+import { createPagoPedido, updatePagoPedido } from '../services/pagoPedidoService';
 import { uploadFile } from '../services/fileService';
 import { API_BASE_URL } from '../config';
 import type { FormaPago } from '../types/formaPago';
 import type { MaterialPedido } from '../types/materialPedido';
+
+export interface PagoPedidoItem {
+    id: number;
+    fecha: string;
+    factura: string;
+    recibo: string;
+    moneda: string;
+    tc?: number;
+    imagen?: string;
+    material_pedido?: MaterialPedido;
+    usuario?: { id: number; name: string };
+    forma_pago?: { id: number; forma_pago: string };
+}
 
 interface PagoPedidoModalProps {
     isOpen: boolean;
     onClose: () => void;
     onPaymentSuccess: () => void;
     pedido: MaterialPedido | null;
+    pagoToEdit?: PagoPedidoItem | null;
 }
 
-const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedidoModalProps) => {
+const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit }: PagoPedidoModalProps) => {
     const { user } = useAuth();
     const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
 
@@ -38,9 +52,19 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
     useEffect(() => {
         if (isOpen) {
             fetchFormasPago();
-            resetForm();
+            if (pagoToEdit) {
+                setFecha(pagoToEdit.fecha ? pagoToEdit.fecha.split('T')[0] : new Date().toISOString().split('T')[0]);
+                setFactura(pagoToEdit.factura || '');
+                setRecibo(pagoToEdit.recibo || '');
+                setMoneda(pagoToEdit.moneda || 'Bolivianos');
+                setTc(pagoToEdit.tc ? Number(pagoToEdit.tc) : 6.96);
+                setIdFormaPago(String(pagoToEdit.forma_pago?.id || ''));
+                setImagen(pagoToEdit.imagen || '');
+            } else {
+                resetForm();
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, pagoToEdit]);
 
     const fetchFormasPago = async () => {
         try {
@@ -116,7 +140,8 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!pedido || !user) return;
+        if (!user) return;
+        if (!pedido && !pagoToEdit) return;
 
         if (!factura && !recibo) {
             Swal.fire('Atención', 'Debe ingresar al menos la Factura o el Recibo.', 'warning');
@@ -124,34 +149,57 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
         }
 
         try {
-            await createPagoPedido({
-                idmaterial_pedido: pedido.id,
-                idusers: String(user.id),
-                idforma_pago: idformaPago,
-                fecha,
-                factura: factura || '',
-                recibo: recibo || '',
-                moneda,
-                tc: moneda === 'Dólares' ? tc : undefined,
-                imagen: imagen || undefined,
-            });
+            if (pagoToEdit) {
+                await updatePagoPedido(pagoToEdit.id, {
+                    idforma_pago: idformaPago,
+                    fecha,
+                    factura: factura || '',
+                    recibo: recibo || '',
+                    moneda,
+                    tc: moneda === 'Dólares' ? tc : undefined,
+                    imagen: imagen || undefined,
+                });
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Éxito',
-                text: 'Pago registrado correctamente',
-                showConfirmButton: false,
-                timer: 1500
-            });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: 'Pago actualizado correctamente',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            } else if (pedido) {
+                await createPagoPedido({
+                    idmaterial_pedido: pedido.id,
+                    idusers: String(user.id),
+                    idforma_pago: idformaPago,
+                    fecha,
+                    factura: factura || '',
+                    recibo: recibo || '',
+                    moneda,
+                    tc: moneda === 'Dólares' ? tc : undefined,
+                    imagen: imagen || undefined,
+                });
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: 'Pago registrado correctamente',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            }
             onPaymentSuccess();
             onClose();
         } catch (error) {
             console.error(error);
-            Swal.fire('Error', 'No se pudo registrar el pago', 'error');
+            Swal.fire('Error', 'No se pudo guardar el pago', 'error');
         }
     };
 
     if (!isOpen) return null;
+
+    const displayPedidoId = pedido?.id || pagoToEdit?.material_pedido?.id;
+    const displayProveedor = pedido?.proveedor?.proveedor || pagoToEdit?.material_pedido?.proveedor?.proveedor;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -160,7 +208,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
                 <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <DollarSign className="text-green-600" />
-                        Registrar Pago
+                        {pagoToEdit ? 'Editar Pago' : 'Registrar Pago'}
                     </h2>
                     <button
                         type="button"
@@ -177,8 +225,8 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-center gap-3">
                         <FileText className="text-blue-500" size={20} />
                         <div>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase">Pedido #{pedido?.id}</p>
-                            <p className="text-sm font-bold text-gray-800 dark:text-white">{pedido?.proveedor?.proveedor}</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase">Pedido #{displayPedidoId}</p>
+                            <p className="text-sm font-bold text-gray-800 dark:text-white">{displayProveedor || 'Proveedor'}</p>
                         </div>
                     </div>
 
@@ -363,8 +411,8 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido }: PagoPedi
                             type="submit"
                             className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all font-medium flex items-center gap-2 transform active:scale-95"
                         >
-                            <DollarSign size={18} />
-                            Confirmar Pago
+                            {pagoToEdit ? <Save size={18} /> : <DollarSign size={18} />}
+                            {pagoToEdit ? 'Guardar Cambios' : 'Confirmar Pago'}
                         </button>
                     </div>
                 </form>
