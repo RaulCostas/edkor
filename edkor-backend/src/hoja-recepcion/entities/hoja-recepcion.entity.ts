@@ -121,7 +121,7 @@ export class HojaRecepcion {
   @Column({ type: 'boolean', default: false })
   autoriza_pruebas: boolean;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'json', nullable: true, select: false })
   fotos: any;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

@@ -289,14 +289,23 @@ export class HojaRecepcionService {
   }
 
   async findOne(id: number, sucursalId?: number | null): Promise<HojaRecepcion> {
-    const where: any = { id };
+    const qb = this.hojaRecepcionRepository
+      .createQueryBuilder('hoja')
+      .addSelect('hoja.fotos')
+      .leftJoinAndSelect('hoja.tipo_orden', 'tipo_orden')
+      .leftJoinAndSelect('hoja.marca_auto', 'marca_auto')
+      .leftJoinAndSelect('hoja.asesor', 'asesor')
+      .leftJoinAndSelect('hoja.jefe_mecanico', 'jefe_mecanico')
+      .leftJoinAndSelect('hoja.mecanico', 'mecanico')
+      .leftJoinAndSelect('hoja.seguro', 'seguro')
+      .leftJoinAndSelect('hoja.inspector', 'inspector')
+      .where('hoja.id = :id', { id });
+
     if (sucursalId) {
-      where.sucursal_id = sucursalId;
+      qb.andWhere('hoja.sucursal_id = :sucursalId', { sucursalId });
     }
-    const hoja = await this.hojaRecepcionRepository.findOne({
-      where,
-      relations: ['tipo_orden', 'marca_auto', 'asesor', 'jefe_mecanico', 'mecanico', 'seguro', 'inspector']
-    });
+
+    const hoja = await qb.getOne();
     if (!hoja) {
       throw new NotFoundException(`Hoja de recepcion con id ${id} no encontrada`);
     }

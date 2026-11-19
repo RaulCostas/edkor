@@ -325,28 +325,59 @@ const HojaRecepcionForm = () => {
     handleCloseCameraModal();
   };
 
-  const handlePhotoFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+const compressImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1280;
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+};
+
+  const handlePhotoFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     const nowIso = new Date().toISOString();
-    const promises = files.map((file) => {
-      return new Promise<FotoVehiculo>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) =>
-          resolve({
-            url: ev.target?.result as string,
-            fecha: nowIso,
-          });
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    const promises = files.map(async (file) => {
+      const compressedUrl = await compressImageFile(file);
+      return {
+        url: compressedUrl,
+        fecha: nowIso,
+      };
     });
-    Promise.all(promises).then((newFotos) => {
-      setFormData((prev) => ({
-        ...prev,
-        fotos: [...(prev.fotos || []), ...newFotos],
-      }));
-    });
+    const newFotos = await Promise.all(promises);
+    setFormData((prev) => ({
+      ...prev,
+      fotos: [...(prev.fotos || []), ...newFotos.filter((f) => Boolean(f.url))],
+    }));
     e.target.value = "";
   };
 
