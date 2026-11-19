@@ -44,7 +44,7 @@ export class DetalleOrdenTrabajo {
     @OneToOne(() => TrabajoAsignado, (ta) => ta.detalle_orden_trabajo, { nullable: true })
     trabajo_asignado?: TrabajoAsignado;
 
-    @Column('int', { default: 1 })
+    @Column('float', { default: 1 })
     cantidad: number;
 
     @Column('decimal', { precision: 12, scale: 2 })

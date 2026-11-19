@@ -46,7 +46,7 @@ export class DetalleCotizacion {
     @Column('int', { nullable: true })
     idpersonal_mecanico: number;
 
-    @Column('int', { default: 1 })
+    @Column('float', { default: 1 })
     cantidad: number;
 
     @Column('decimal', { precision: 12, scale: 2 })
