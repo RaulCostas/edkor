@@ -57,20 +57,45 @@ export class UsersService implements OnModuleInit {
   }
 
   findAll() {
-    return this.userRepository.find({ relations: ['rol', 'personal', 'sucursal'] });
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.foto')
+      .leftJoinAndSelect('user.rol', 'rol')
+      .leftJoinAndSelect('user.personal', 'personal')
+      .leftJoinAndSelect('user.sucursal', 'sucursal')
+      .orderBy('user.id', 'ASC')
+      .getMany();
   }
 
   findOne(id: string) {
-    return this.userRepository.findOne({ where: { id: +id }, relations: ['rol', 'personal', 'sucursal'] });
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.foto')
+      .leftJoinAndSelect('user.rol', 'rol')
+      .leftJoinAndSelect('user.personal', 'personal')
+      .leftJoinAndSelect('user.sucursal', 'sucursal')
+      .where('user.id = :id', { id: +id })
+      .getOne();
   }
 
   findByEmail(email: string) {
     const cleanEmail = (email || '').trim().toLowerCase();
-    const whereConditions: any[] = [{ email: ILike(cleanEmail) }];
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .addSelect(['user.password', 'user.foto'])
+      .leftJoinAndSelect('user.rol', 'rol')
+      .leftJoinAndSelect('user.personal', 'personal')
+      .leftJoinAndSelect('user.sucursal', 'sucursal');
+
     if (cleanEmail === 'admin') {
-      whereConditions.push({ email: ILike('admin@edkormotors.com') });
+      qb.where('LOWER(user.email) = :email1 OR LOWER(user.email) = :email2', {
+        email1: cleanEmail,
+        email2: 'admin@edkormotors.com',
+      });
+    } else {
+      qb.where('LOWER(user.email) = :email', { email: cleanEmail });
     }
-    return this.userRepository.findOne({ where: whereConditions, relations: ['rol', 'personal', 'sucursal'] });
+    return qb.getOne();
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
@@ -103,7 +128,11 @@ export class UsersService implements OnModuleInit {
   }
 
   async changePassword(id: number, currentPassword: string, newPassword: string) {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id })
+      .getOne();
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }

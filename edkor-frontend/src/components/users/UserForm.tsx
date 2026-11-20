@@ -12,6 +12,43 @@ interface UserFormProps {
   onSubmit: (user: Omit<User, "id">) => Promise<void>;
   onCancel: () => void;
 }
+const compressAvatarFile = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 256;
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+};
+
 export const UserForm = ({
   initialData,
   onSubmit,
@@ -421,14 +458,11 @@ export const UserForm = ({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    setFormData({ ...formData, foto: reader.result as string });
-                  };
-                  reader.readAsDataURL(file);
+                  const compressed = await compressAvatarFile(file);
+                  setFormData({ ...formData, foto: compressed });
                 }
               }}
             />{" "}

@@ -291,7 +291,12 @@ export class HojaRecepcionService {
   async findOne(id: number, sucursalId?: number | null): Promise<HojaRecepcion> {
     const qb = this.hojaRecepcionRepository
       .createQueryBuilder('hoja')
-      .addSelect('hoja.fotos')
+      .addSelect([
+        'hoja.fotos',
+        'hoja.diagrama_vehiculo',
+        'hoja.firma_cliente',
+        'hoja.firma_asesor',
+      ])
       .leftJoinAndSelect('hoja.tipo_orden', 'tipo_orden')
       .leftJoinAndSelect('hoja.marca_auto', 'marca_auto')
       .leftJoinAndSelect('hoja.asesor', 'asesor')

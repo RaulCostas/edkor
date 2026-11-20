@@ -14,10 +14,10 @@ export class User {
     @Column('text', { unique: true })
     email: string;
 
-    @Column('text')
+    @Column('text', { select: false })
     password?: string;
 
-    @Column('text', { nullable: true })
+    @Column('text', { nullable: true, select: false })
     foto?: string;
 
     @Column('text', { default: 'activo' })

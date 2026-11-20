@@ -127,13 +127,13 @@ export class HojaRecepcion {
   @Column({ type: 'varchar', length: 255, nullable: true })
   accesorios_otros: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, select: false })
   firma_cliente: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, select: false })
   firma_asesor: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, select: false })
   diagrama_vehiculo: string;
 
   @Column({ type: 'int', nullable: true })
