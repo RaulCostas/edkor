@@ -29,6 +29,7 @@ import {
 import type { HojaRecepcion } from "../services/hojaRecepcionService";
 import { getTiposOrdenEnHojasRecepcion } from "../services/tipoOrdenService";
 import type { TipoOrden } from "../types/tipoOrden";
+import { getLocalDateString } from "../utils/dateUtils";
 import HojaRecepcionPrintView from "../components/HojaRecepcionPrintView";
 import AltaRecepcionPrintView, {
   type AltaRecepcionData,
@@ -41,6 +42,7 @@ const HojaRecepcionList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTipoOrden, setSelectedTipoOrden] = useState<string>("");
+  const [selectedDateFilter, setSelectedDateFilter] = useState<"todos" | "hoy" | "ayer" | "semana">("todos");
   const [tiposOrden, setTiposOrden] = useState<TipoOrden[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -738,6 +740,26 @@ const HojaRecepcionList = () => {
       if (!matchesTipo) return false;
     }
 
+    if (selectedDateFilter !== "todos") {
+      const todayStr = getLocalDateString(new Date());
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayStr = getLocalDateString(yesterdayDate);
+
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const mondayDate = new Date(now);
+      mondayDate.setDate(now.getDate() - diffToMonday);
+      const mondayStr = getLocalDateString(mondayDate);
+
+      const hojaDate = getLocalDateString(h.fecha_ingreso || (h as any).created_at);
+
+      if (selectedDateFilter === "hoy" && hojaDate !== todayStr) return false;
+      if (selectedDateFilter === "ayer" && hojaDate !== yesterdayStr) return false;
+      if (selectedDateFilter === "semana" && (hojaDate < mondayStr || hojaDate > todayStr)) return false;
+    }
+
     return true;
   });
 
@@ -836,14 +858,78 @@ const HojaRecepcionList = () => {
             </select>
           </div>
 
-          {(searchTerm || selectedTipoOrden) && (
+          {/* Filtro Rápido de Fechas: Todas, Hoy, Ayer, Esta Semana */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDateFilter("todos");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                selectedDateFilter === "todos"
+                  ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              Todas
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDateFilter("hoy");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                selectedDateFilter === "hoy"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+              title="Hojas registradas hoy"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDateFilter("ayer");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                selectedDateFilter === "ayer"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+              title="Hojas registradas ayer"
+            >
+              Ayer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDateFilter("semana");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                selectedDateFilter === "semana"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+              title="Hojas de esta semana"
+            >
+              Esta Semana
+            </button>
+          </div>
+
+          {(searchTerm || selectedTipoOrden || selectedDateFilter !== "todos") && (
             <button
               onClick={() => {
                 setSearchTerm("");
                 setSelectedTipoOrden("");
+                setSelectedDateFilter("todos");
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors border border-red-200 dark:border-red-800 flex items-center gap-1 cursor-pointer"
+              className="px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors border border-red-200 dark:border-red-800 flex items-center gap-1 cursor-pointer shrink-0"
               title="Limpiar filtros"
             >
               <X className="h-4 w-4" />

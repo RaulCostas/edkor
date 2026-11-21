@@ -32,9 +32,9 @@ const FormaPagoList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = formasPago.filter(fp =>
-            fp.forma_pago.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = formasPago
+            .filter(fp => fp.forma_pago.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.forma_pago || '').localeCompare(b.forma_pago || '', 'es', { sensitivity: 'base' }));
         setFilteredFormasPago(filtered);
         setCurrentPage(1);
     }, [searchTerm, formasPago]);
@@ -43,8 +43,9 @@ const FormaPagoList = () => {
         try {
             setLoading(true);
             const data = await getFormasPago();
-            setFormasPago(data);
-            setFilteredFormasPago(data);
+            const sorted = [...data].sort((a, b) => (a.forma_pago || '').localeCompare(b.forma_pago || '', 'es', { sensitivity: 'base' }));
+            setFormasPago(sorted);
+            setFilteredFormasPago(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

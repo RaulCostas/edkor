@@ -9,12 +9,15 @@ import {
     ChevronLeft,
     ChevronRight,
     Eye,
+    User,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import {
     getUtilidadMensual,
+    getAsesoresRecepcion,
     type UtilidadMensualResponse,
+    type AsesorRecepcion,
 } from '../services/ordenTrabajoService';
 import Pagination from '../components/Pagination';
 import ManualModal, { type ManualSection } from '../components/ManualModal';
@@ -33,7 +36,11 @@ export const UtilidadOrdenesMensual = () => {
     const [startDate, setStartDate] = useState<string>(`${currentMonthStr}-01`);
     const [endDate, setEndDate] = useState<string>(now.toISOString().split('T')[0]);
     const [selectedEstado, setSelectedEstado] = useState<string>('todos');
+    const [selectedAsesor, setSelectedAsesor] = useState<string>('todos');
     const [searchTerm, setSearchTerm] = useState<string>('');
+
+    // Asesores registrados en orden de recepción
+    const [asesores, setAsesores] = useState<AsesorRecepcion[]>([]);
 
     // Data state
     const [data, setData] = useState<UtilidadMensualResponse | null>(null);
@@ -46,6 +53,19 @@ export const UtilidadOrdenesMensual = () => {
     // Pagination
     const [currentPage, setCurrentPage] = useState<number>(1);
     const itemsPerPage = 10;
+
+    // Cargar asesores registrados en órdenes de recepción
+    useEffect(() => {
+        const loadAsesores = async () => {
+            try {
+                const res = await getAsesoresRecepcion();
+                setAsesores(res || []);
+            } catch (err) {
+                console.error('Error al cargar asesores de recepción:', err);
+            }
+        };
+        loadAsesores();
+    }, []);
 
     const manualSections: ManualSection[] = [
         {
@@ -83,6 +103,9 @@ export const UtilidadOrdenesMensual = () => {
             if (selectedEstado && selectedEstado !== 'todos') {
                 params.estado = selectedEstado;
             }
+            if (selectedAsesor && selectedAsesor !== 'todos') {
+                params.asesor_id = selectedAsesor;
+            }
 
             const res = await getUtilidadMensual(params);
             setData(res);
@@ -97,7 +120,7 @@ export const UtilidadOrdenesMensual = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedMonth, startDate, endDate, selectedEstado, filterMode]);
+    }, [selectedMonth, startDate, endDate, selectedEstado, selectedAsesor, filterMode]);
 
     // Month navigation helpers
     const changeMonth = (offset: number) => {
@@ -113,21 +136,27 @@ export const UtilidadOrdenesMensual = () => {
         return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     };
 
-    // Filtered orders list by search term
+    // Filtered orders list by search term and asesor
     const filteredOrdenes = useMemo(() => {
         if (!data?.ordenes) return [];
-        const term = searchTerm.toLowerCase().trim();
-        if (!term) return data.ordenes;
+        let list = data.ordenes;
+        if (selectedAsesor && selectedAsesor !== 'todos') {
+            list = list.filter((o) => String(o.asesor_id) === String(selectedAsesor));
+        }
 
-        return data.ordenes.filter(
+        const term = searchTerm.toLowerCase().trim();
+        if (!term) return list;
+
+        return list.filter(
             (o) =>
                 o.nro_orden.toLowerCase().includes(term) ||
                 o.cliente.toLowerCase().includes(term) ||
                 o.placa.toLowerCase().includes(term) ||
                 o.vehiculo.toLowerCase().includes(term) ||
+                (o.asesor && o.asesor.toLowerCase().includes(term)) ||
                 (o.nro_factura && o.nro_factura.toLowerCase().includes(term))
         );
-    }, [data?.ordenes, searchTerm]);
+    }, [data?.ordenes, searchTerm, selectedAsesor]);
 
     // Pagination calculations
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -169,17 +198,21 @@ export const UtilidadOrdenesMensual = () => {
         }
 
         const resumen = data.resumen_general;
+        const selectedAsesorObj = asesores.find(a => String(a.id) === String(selectedAsesor));
+        const asesorLabel = selectedAsesorObj ? selectedAsesorObj.nombre_completo : 'Todos los Asesores';
+
         const resumenRows = [
             { Concepto: 'REPORTE DE UTILIDAD NETA MENSUAL DE ÓRDENES DE TRABAJO', Valor: '' },
             { Concepto: 'Periodo:', Valor: filterMode === 'month' ? getMonthName(selectedMonth) : `${startDate} al ${endDate}` },
+            { Concepto: 'Asesor Filtrado:', Valor: asesorLabel },
             { Concepto: 'Total Órdenes Evaluadas:', Valor: resumen.total_ordenes },
             { Concepto: 'Ingreso Neto Total Órdenes (Bs):', Valor: resumen.ingreso_neto_ordenes },
-            { Concepto: 'Pago a Mecánicos Total (Bs):', Valor: -resumen.costo_mecanicos },
+            { Concepto: 'Pago a Mecánicos Total (Bs):', Valor: resumen.costo_mecanicos },
             { Concepto: '  - Pagado (Bs):', Valor: resumen.costo_mecanicos_pagado },
             { Concepto: '  - Pendiente (Bs):', Valor: resumen.costo_mecanicos_pendiente },
-            { Concepto: 'Costo Compra Repuestos (Bs):', Valor: -resumen.costo_repuestos },
+            { Concepto: 'Costo Compra Repuestos (Bs):', Valor: resumen.costo_repuestos },
             { Concepto: '  - Venta de Repuestos (Bs):', Valor: resumen.ingreso_repuestos },
-            { Concepto: 'Trabajos de Terceros (Bs):', Valor: -resumen.costo_terceros },
+            { Concepto: 'Trabajos de Terceros (Bs):', Valor: resumen.costo_terceros },
             { Concepto: 'Total Costos Deducidos (Bs):', Valor: resumen.total_costos },
             { Concepto: 'UTILIDAD NETA REAL (Bs):', Valor: resumen.utilidad_neta },
             { Concepto: 'Margen de Ganancia Promedio (%):', Valor: `${resumen.margen_porcentaje}%` },
@@ -194,6 +227,7 @@ export const UtilidadOrdenesMensual = () => {
             'Placa': o.placa,
             'Vehículo': o.vehiculo,
             'Cliente': o.cliente,
+            'Asesor': o.asesor || 'Sin asesor',
             'Tipo Orden': o.tipo_orden,
             'Estado': o.estado,
             'Ingreso OT (Bs)': o.ingreso_neto,
@@ -223,13 +257,15 @@ export const UtilidadOrdenesMensual = () => {
             return;
         }
 
+        const selectedAsesorObj = asesores.find(a => String(a.id) === String(selectedAsesor));
+        const asesorLabel = selectedAsesorObj ? selectedAsesorObj.nombre_completo : 'Todos los Asesores';
         const periodLabel = filterMode === 'month' ? getMonthName(selectedMonth).toUpperCase() : `${startDate} al ${endDate}`;
         const tableBody = filteredOrdenes.map((o, idx) => [
             idx + 1,
             o.nro_orden,
             new Date(o.fecha_registro).toLocaleDateString(),
             o.placa,
-            o.cliente,
+            `${o.cliente}${o.asesor ? ` (Asesor: ${o.asesor})` : ''}`,
             o.estado,
             `Bs. ${o.ingreso_neto.toFixed(2)}`,
             `Bs. ${o.costo_mecanicos.toFixed(2)}`,
@@ -244,7 +280,7 @@ export const UtilidadOrdenesMensual = () => {
         await exportStandardPDF({
             title: 'REPORTE MENSUAL DE UTILIDAD NETA DE ÓRDENES DE TRABAJO',
             subtitle: `PERIODO: ${periodLabel} | Utilidad Neta Real: Bs. ${res.utilidad_neta.toFixed(2)} (${res.margen_porcentaje}%)`,
-            filtersText: `Filtro: ${filterMode === 'month' ? selectedMonth : `${startDate} a ${endDate}`} | Estado: ${selectedEstado} | Total OT: ${filteredOrdenes.length}`,
+            filtersText: `Filtro: ${filterMode === 'month' ? selectedMonth : `${startDate} a ${endDate}`} | Asesor: ${asesorLabel} | Estado: ${selectedEstado} | Total OT: ${filteredOrdenes.length}`,
             totalRecords: filteredOrdenes.length,
             totalRecordsLabel: 'Órdenes Analizadas',
             filename: `Utilidad_Ordenes_${selectedMonth}.pdf`,
@@ -369,7 +405,27 @@ export const UtilidadOrdenesMensual = () => {
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${filterMode === 'month' ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-3 pt-1`}>
+                    {/* 1. Asesor (Primer Filtro) */}
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 flex items-center gap-1">
+                            <User size={13} className="text-emerald-600 dark:text-emerald-400" />
+                            Filtrar por Asesor:
+                        </label>
+                        <select
+                            value={selectedAsesor}
+                            onChange={(e) => setSelectedAsesor(e.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
+                        >
+                            <option value="todos">Todos los Asesores</option>
+                            {asesores.map((a) => (
+                                <option key={a.id} value={String(a.id)}>
+                                    {a.nombre_completo}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     {filterMode === 'month' ? (
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
@@ -437,7 +493,7 @@ export const UtilidadOrdenesMensual = () => {
                             />
                             <input
                                 type="text"
-                                placeholder="Placa, Cliente, OT..."
+                                placeholder="Placa, Cliente, Asesor, OT..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
@@ -480,7 +536,7 @@ export const UtilidadOrdenesMensual = () => {
                             <Wrench size={18} />
                         </div>
                         <div className="text-2xl font-extrabold text-amber-700 dark:text-amber-300 font-mono mt-1">
-                            - Bs. {data.resumen_general.costo_mecanicos.toFixed(2)}
+                            Bs. {data.resumen_general.costo_mecanicos.toFixed(2)}
                         </div>
                         <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 flex justify-between border-t border-amber-100 dark:border-amber-900/40 pt-1.5">
                             <span className="text-emerald-600 dark:text-emerald-400 font-medium">
@@ -501,7 +557,7 @@ export const UtilidadOrdenesMensual = () => {
                             <Package size={18} />
                         </div>
                         <div className="text-2xl font-extrabold text-purple-700 dark:text-purple-300 font-mono mt-1">
-                            - Bs. {data.resumen_general.costo_repuestos.toFixed(2)}
+                            Bs. {data.resumen_general.costo_repuestos.toFixed(2)}
                         </div>
                         <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 border-t border-purple-100 dark:border-purple-900/40 pt-1.5">
                             Precio venta repuestos: Bs. {data.resumen_general.ingreso_repuestos.toFixed(2)}
@@ -517,7 +573,7 @@ export const UtilidadOrdenesMensual = () => {
                             <ExternalLink size={18} />
                         </div>
                         <div className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono mt-1">
-                            - Bs. {data.resumen_general.costo_terceros.toFixed(2)}
+                            Bs. {data.resumen_general.costo_terceros.toFixed(2)}
                         </div>
                         <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 border-t border-indigo-100 dark:border-indigo-900/40 pt-1.5">
                             Costo externo (torno, alineado, etc.)
@@ -639,19 +695,25 @@ export const UtilidadOrdenesMensual = () => {
                                             {o.vehiculo}
                                         </td>
                                         <td className="p-3.5 font-medium text-gray-800 dark:text-gray-200">
-                                            {o.cliente}
+                                            <div>{o.cliente}</div>
+                                            {o.asesor && (
+                                                <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+                                                    <User size={11} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                    <span className="truncate">Asesor: {o.asesor}</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-3.5 text-right font-mono font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                                             Bs. {o.ingreso_neto.toFixed(2)}
                                         </td>
                                         <td className="p-3.5 text-right font-mono text-amber-700 dark:text-amber-300 whitespace-nowrap">
-                                            - Bs. {o.costo_mecanicos.toFixed(2)}
+                                            Bs. {o.costo_mecanicos.toFixed(2)}
                                         </td>
                                         <td className="p-3.5 text-right font-mono text-purple-700 dark:text-purple-300 whitespace-nowrap">
-                                            - Bs. {o.costo_repuestos.toFixed(2)}
+                                            Bs. {o.costo_repuestos.toFixed(2)}
                                         </td>
                                         <td className="p-3.5 text-right font-mono text-indigo-700 dark:text-indigo-300 whitespace-nowrap">
-                                            - Bs. {o.costo_terceros.toFixed(2)}
+                                            Bs. {o.costo_terceros.toFixed(2)}
                                         </td>
                                         <td
                                             className={`p-3.5 text-right font-mono font-bold whitespace-nowrap ${

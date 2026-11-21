@@ -33,11 +33,13 @@ const SucursalesList = () => {
   }, []);
   useEffect(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = sucursales.filter(
-      (s) =>
-        s.nombre.toLowerCase().includes(lowerSearchTerm) ||
-        s.direccion.toLowerCase().includes(lowerSearchTerm),
-    );
+    const filtered = sucursales
+      .filter(
+        (s) =>
+          s.nombre.toLowerCase().includes(lowerSearchTerm) ||
+          s.direccion.toLowerCase().includes(lowerSearchTerm),
+      )
+      .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
     setFilteredSucursales(filtered);
     setCurrentPage(1);
   }, [searchTerm, sucursales]);
@@ -45,8 +47,9 @@ const SucursalesList = () => {
     try {
       setLoading(true);
       const data = await getSucursales();
-      setSucursales(data);
-      setFilteredSucursales(data);
+      const sorted = [...data].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+      setSucursales(sorted);
+      setFilteredSucursales(sorted);
     } catch (err: any) {
       console.error(err);
       Swal.fire({

@@ -11,6 +11,7 @@ export interface MaterialPedido {
   observaciones?: string;
   pagado: boolean;
   estado: string;
+  detalles?: DetalleMaterialPedido[];
 }
 
 export interface CreateMaterialPedidoData {

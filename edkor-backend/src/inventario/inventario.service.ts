@@ -690,4 +690,170 @@ export class InventarioService implements OnModuleInit {
             movimientos,
         };
     }
+
+    /**
+     * REVERTIR INGRESO POR ANULACIÓN / ELIMINACIÓN DE COMPRA (PEDIDO)
+     * Descuenta del stock de inventario, anula el lote asociado y registra movimiento en Kardex.
+     */
+    async revertirIngresoCompra(idmaterial_pedido: number) {
+        // 1. Buscar todos los lotes asociados a este pedido
+        const lotes = await this.loteRepository.find({
+            where: { idmaterial_pedido, estado: 'activo' },
+        });
+
+        // 2. Verificar si alguno de los lotes ya tuvo consumos en órdenes de trabajo
+        for (const lote of lotes) {
+            const inicial = Number(lote.cantidad_inicial || 0);
+            const disponible = Number(lote.cantidad_disponible || 0);
+            const consumido = Number((inicial - disponible).toFixed(4));
+            if (consumido > 0.0001) {
+                const inv = await this.inventarioRepository.findOneBy({ id: lote.idinventario });
+                const nombreItem = inv?.descripcion || `Item #${lote.idinventario}`;
+                throw new BadRequestException(
+                    `No se puede eliminar la compra porque ya se consumieron ${consumido} unidades de "${nombreItem}" en órdenes de trabajo.`
+                );
+            }
+        }
+
+        // 3. Revertir cada lote del pedido
+        for (const lote of lotes) {
+            const cant = Number(lote.cantidad_inicial || 0);
+            const inventario = await this.inventarioRepository.findOneBy({ id: lote.idinventario });
+
+            if (inventario) {
+                inventario.entradas = Math.max(0, Number((Number(inventario.entradas || 0) - cant).toFixed(4)));
+                inventario.cantidad_existente = Math.max(
+                    0,
+                    Number((Number(inventario.stock_inicial || 0) + Number(inventario.entradas || 0) - Number(inventario.salidas || 0)).toFixed(4))
+                );
+                await this.inventarioRepository.save(inventario);
+
+                // Registrar movimiento Kardex de anulación
+                await this.movimientoRepository.save(
+                    this.movimientoRepository.create({
+                        idinventario: lote.idinventario,
+                        idlote: lote.id,
+                        tipo_movimiento: 'AJUSTE_NEGATIVO',
+                        cantidad: cant,
+                        costo_unitario: Number(lote.costo_unitario || 0),
+                        precio_venta_unitario: Number(inventario.precio_venta || 0),
+                        idmaterial_pedido,
+                        saldo_stock_resultante: inventario.cantidad_existente,
+                        observaciones: `Anulación de compra / pedido #${idmaterial_pedido} (Lote #${lote.id})`,
+                    })
+                );
+            }
+
+            // Anular el lote
+            lote.estado = 'anulado';
+            lote.cantidad_disponible = 0;
+            await this.loteRepository.save(lote);
+        }
+
+        // 4. Fallback si no existían lotes pero sí detalles de pedido
+        if (lotes.length === 0) {
+            const detalles = await this.inventarioRepository.manager.query(
+                `SELECT id, idinventario, cantidad, precio_unitario FROM detalle_material_pedido WHERE idmaterial_pedido = $1`,
+                [idmaterial_pedido]
+            );
+            for (const det of detalles) {
+                const inv = await this.inventarioRepository.findOneBy({ id: Number(det.idinventario) });
+                if (inv) {
+                    const cant = Number(det.cantidad || 0);
+                    inv.entradas = Math.max(0, Number((Number(inv.entradas || 0) - cant).toFixed(4)));
+                    inv.cantidad_existente = Math.max(
+                        0,
+                        Number((Number(inv.stock_inicial || 0) + Number(inv.entradas || 0) - Number(inv.salidas || 0)).toFixed(4))
+                    );
+                    await this.inventarioRepository.save(inv);
+
+                    await this.movimientoRepository.save(
+                        this.movimientoRepository.create({
+                            idinventario: Number(det.idinventario),
+                            idlote: null,
+                            tipo_movimiento: 'AJUSTE_NEGATIVO',
+                            cantidad: cant,
+                            costo_unitario: Number(det.precio_unitario || 0),
+                            precio_venta_unitario: Number(inv.precio_venta || 0),
+                            idmaterial_pedido,
+                            saldo_stock_resultante: inv.cantidad_existente,
+                            observaciones: `Anulación de compra / pedido #${idmaterial_pedido} (sin lote)`,
+                        })
+                    );
+                }
+            }
+        }
+
+        return { success: true, lotesRevertidos: lotes.length };
+    }
+
+    /**
+     * REVERTIR INGRESO DE UN ITEM ESPECÍFICO DE COMPRA
+     */
+    async revertirIngresoDetalle(iddetalle_material_pedido: number) {
+        const lote = await this.loteRepository.findOne({
+            where: { iddetalle_material_pedido, estado: 'activo' },
+        });
+
+        if (lote) {
+            const inicial = Number(lote.cantidad_inicial || 0);
+            const disponible = Number(lote.cantidad_disponible || 0);
+            const consumido = Number((inicial - disponible).toFixed(4));
+            if (consumido > 0.0001) {
+                const inv = await this.inventarioRepository.findOneBy({ id: lote.idinventario });
+                const nombreItem = inv?.descripcion || `Item #${lote.idinventario}`;
+                throw new BadRequestException(
+                    `No se puede eliminar el item porque ya se consumieron ${consumido} unidades de "${nombreItem}" en órdenes de trabajo.`
+                );
+            }
+
+            const cant = Number(lote.cantidad_inicial || 0);
+            const inventario = await this.inventarioRepository.findOneBy({ id: lote.idinventario });
+            if (inventario) {
+                inventario.entradas = Math.max(0, Number((Number(inventario.entradas || 0) - cant).toFixed(4)));
+                inventario.cantidad_existente = Math.max(
+                    0,
+                    Number((Number(inventario.stock_inicial || 0) + Number(inventario.entradas || 0) - Number(inventario.salidas || 0)).toFixed(4))
+                );
+                await this.inventarioRepository.save(inventario);
+
+                await this.movimientoRepository.save(
+                    this.movimientoRepository.create({
+                        idinventario: lote.idinventario,
+                        idlote: lote.id,
+                        tipo_movimiento: 'AJUSTE_NEGATIVO',
+                        cantidad: cant,
+                        costo_unitario: Number(lote.costo_unitario || 0),
+                        precio_venta_unitario: Number(inventario.precio_venta || 0),
+                        idmaterial_pedido: lote.idmaterial_pedido,
+                        saldo_stock_resultante: inventario.cantidad_existente,
+                        observaciones: `Eliminación de item #${iddetalle_material_pedido} en compra (Lote #${lote.id})`,
+                    })
+                );
+            }
+
+            lote.estado = 'anulado';
+            lote.cantidad_disponible = 0;
+            await this.loteRepository.save(lote);
+        } else {
+            // Fallback si no tiene lote
+            const detalles = await this.inventarioRepository.manager.query(
+                `SELECT id, idinventario, cantidad, precio_unitario, idmaterial_pedido FROM detalle_material_pedido WHERE id = $1`,
+                [iddetalle_material_pedido]
+            );
+            if (detalles.length > 0) {
+                const det = detalles[0];
+                const inv = await this.inventarioRepository.findOneBy({ id: Number(det.idinventario) });
+                if (inv) {
+                    const cant = Number(det.cantidad || 0);
+                    inv.entradas = Math.max(0, Number((Number(inv.entradas || 0) - cant).toFixed(4)));
+                    inv.cantidad_existente = Math.max(
+                        0,
+                        Number((Number(inv.stock_inicial || 0) + Number(inv.entradas || 0) - Number(inv.salidas || 0)).toFixed(4))
+                    );
+                    await this.inventarioRepository.save(inv);
+                }
+            }
+        }
+    }
 }

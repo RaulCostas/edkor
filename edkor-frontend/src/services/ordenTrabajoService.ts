@@ -194,6 +194,8 @@ export interface OrdenUtilidadItem {
   vehiculo: string;
   tipo_orden: string;
   estado: string;
+  asesor?: string;
+  asesor_id?: number | null;
   moneda: string;
   facturado: boolean;
   nro_factura: string | null;
@@ -238,11 +240,30 @@ export interface UtilidadMensualResponse {
   ordenes: OrdenUtilidadItem[];
 }
 
+export interface AsesorRecepcion {
+  id: number;
+  nombre: string;
+  paterno?: string;
+  materno?: string;
+  nombre_completo: string;
+}
+
+export const getAsesoresRecepcion = async (): Promise<AsesorRecepcion[]> => {
+  try {
+    const response = await api.get(`${ENDPOINT}/utilidad-mensual/asesores`);
+    return response.data || [];
+  } catch (error) {
+    console.error("Error al obtener asesores con recepción:", error);
+    return [];
+  }
+};
+
 export const getUtilidadMensual = async (params?: {
   mes?: string;
   desde?: string;
   hasta?: string;
   estado?: string;
+  asesor_id?: string | number;
 }): Promise<UtilidadMensualResponse> => {
   const response = await api.get(`${ENDPOINT}/utilidad-mensual`, { params });
   return response.data;

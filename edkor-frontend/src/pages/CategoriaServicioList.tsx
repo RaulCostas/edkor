@@ -32,9 +32,9 @@ const CategoriaServicioList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = categorias.filter(c =>
-            c.categoria_servicio.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = categorias
+            .filter(c => c.categoria_servicio.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.categoria_servicio || '').localeCompare(b.categoria_servicio || '', 'es', { sensitivity: 'base' }));
         setFilteredCategorias(filtered);
         setCurrentPage(1);
     }, [searchTerm, categorias]);
@@ -43,8 +43,9 @@ const CategoriaServicioList = () => {
         try {
             setLoading(true);
             const data = await getCategoriasServicio();
-            setCategorias(data);
-            setFilteredCategorias(data);
+            const sorted = [...data].sort((a, b) => (a.categoria_servicio || '').localeCompare(b.categoria_servicio || '', 'es', { sensitivity: 'base' }));
+            setCategorias(sorted);
+            setFilteredCategorias(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

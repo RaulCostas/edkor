@@ -34,9 +34,9 @@ const GrupoInventarioList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = gruposInventario.filter(gi =>
-            gi.grupo.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = gruposInventario
+            .filter(gi => gi.grupo.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.grupo || '').localeCompare(b.grupo || '', 'es', { sensitivity: 'base' }));
         setFilteredGruposInventario(filtered);
         setCurrentPage(1);
     }, [searchTerm, gruposInventario]);
@@ -45,8 +45,9 @@ const GrupoInventarioList = () => {
         try {
             setLoading(true);
             const data = await getGruposInventario();
-            setGruposInventario(data);
-            setFilteredGruposInventario(data);
+            const sorted = [...data].sort((a, b) => (a.grupo || '').localeCompare(b.grupo || '', 'es', { sensitivity: 'base' }));
+            setGruposInventario(sorted);
+            setFilteredGruposInventario(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

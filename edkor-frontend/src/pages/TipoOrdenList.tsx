@@ -32,9 +32,9 @@ const TipoOrdenList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = tiposOrden.filter(t =>
-            t.tipo_orden.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = tiposOrden
+            .filter(t => t.tipo_orden.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.tipo_orden || '').localeCompare(b.tipo_orden || '', 'es', { sensitivity: 'base' }));
         setFilteredTiposOrden(filtered);
         setCurrentPage(1);
     }, [searchTerm, tiposOrden]);
@@ -43,8 +43,9 @@ const TipoOrdenList = () => {
         try {
             setLoading(true);
             const data = await getTiposOrden();
-            setTiposOrden(data);
-            setFilteredTiposOrden(data);
+            const sorted = [...data].sort((a, b) => (a.tipo_orden || '').localeCompare(b.tipo_orden || '', 'es', { sensitivity: 'base' }));
+            setTiposOrden(sorted);
+            setFilteredTiposOrden(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

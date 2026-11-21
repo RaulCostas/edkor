@@ -4,7 +4,7 @@ import type { UnidadMedida } from '../../types/unidadMedida';
 import type { GrupoInventario } from '../../types/grupoInventario';
 import { getUnidadesMedida, createUnidadMedida } from '../../services/unidadMedidaService';
 import { getGruposInventario, createGrupoInventario } from '../../services/grupoInventarioService';
-import { Tag, Package, Box, Layers, BarChart, Ruler, Power, Save, X, DollarSign, Hash, Plus } from 'lucide-react';
+import { Tag, Package, Box, Layers, BarChart, Ruler, Power, Save, X, Hash, Plus } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../../context/AuthContext';
 
@@ -29,6 +29,10 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
         id_grupo_inventario: ''
     });
 
+    // Control de texto para permitir decimales con '.' o ',' fluidamente
+    const [stockInicialStr, setStockInicialStr] = useState<string>('0');
+    const [stockMinimoStr, setStockMinimoStr] = useState<string>('0');
+
     const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
     const [grupos, setGrupos] = useState<GrupoInventario[]>([]);
     const [loading, setLoading] = useState(false);
@@ -50,7 +54,6 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                     getUnidadesMedida(),
                     getGruposInventario()
                 ]);
-                // Ensure we are filtering correctly, assuming API returns array
                 setUnidades(Array.isArray(fetchedUnidades) ? fetchedUnidades.filter(u => u.estado === 'activo') : []);
                 setGrupos(Array.isArray(fetchedGrupos) ? fetchedGrupos.filter(g => g.estado === 'activo') : []);
             } catch (err) {
@@ -67,20 +70,59 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
 
     useEffect(() => {
         if (initialData) {
+            const initStock = initialData.stock_inicial !== undefined && initialData.stock_inicial !== null
+                ? String(initialData.stock_inicial)
+                : String(initialData.cantidad_existente ?? 0);
+            const minStock = String(initialData.stock_minimo ?? 0);
+
+            setStockInicialStr(initStock);
+            setStockMinimoStr(minStock);
+
             setFormData({
                 codigo: initialData.codigo || '',
                 descripcion: initialData.descripcion,
-                stock_inicial: initialData.stock_inicial !== undefined ? Number(initialData.stock_inicial) : Number(initialData.cantidad_existente || 0),
+                stock_inicial: Number(initStock) || 0,
                 cantidad_existente: Number(initialData.cantidad_existente || 0),
-                stock_minimo: Number(initialData.stock_minimo || 0),
+                stock_minimo: Number(minStock) || 0,
                 precio_compra: Number(initialData.precio_compra || 0),
                 precio_venta: Number(initialData.precio_venta || 0),
                 estado: initialData.estado,
                 idunidad_medida: initialData.idunidad_medida || initialData.unidad_medida?.id || '',
                 id_grupo_inventario: initialData.id_grupo_inventario || initialData.grupo_inventario?.id || ''
             });
+        } else {
+            setStockInicialStr('0');
+            setStockMinimoStr('0');
+            setFormData({
+                codigo: '',
+                descripcion: '',
+                stock_inicial: 0,
+                cantidad_existente: 0,
+                stock_minimo: 0,
+                precio_compra: 0,
+                precio_venta: 0,
+                estado: 'activo',
+                idunidad_medida: '',
+                id_grupo_inventario: ''
+            });
         }
     }, [initialData]);
+
+    const handleStockInicialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // Normalizar comas a puntos para teclado numérico español
+        let val = e.target.value.replace(',', '.');
+        // Permitir dígitos y hasta un solo punto decimal
+        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+            setStockInicialStr(val);
+        }
+    };
+
+    const handleStockMinimoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = e.target.value.replace(',', '.');
+        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+            setStockMinimoStr(val);
+        }
+    };
 
     const handleCreateUnidad = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -160,9 +202,17 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
             return;
         }
 
+        const parsedStockInicial = parseFloat(stockInicialStr) || 0;
+        const parsedStockMinimo = parseFloat(stockMinimoStr) || 0;
+
         try {
             await onSubmit({
                 ...formData,
+                stock_inicial: parsedStockInicial,
+                cantidad_existente: initialData ? Number(formData.cantidad_existente || 0) : parsedStockInicial,
+                stock_minimo: parsedStockMinimo,
+                precio_compra: initialData ? Number(initialData.precio_compra || 0) : 0,
+                precio_venta: initialData ? Number(initialData.precio_venta || 0) : 0,
                 idusuario: user?.id
             });
         } catch (err: any) {
@@ -232,28 +282,21 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Stock Inicial */}
                     <div className="mb-2">
                         <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-                            {initialData ? 'Stock Inicial:' : 'Stock Inicial:'}
+                            Stock Inicial:
                         </label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Package className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
-                                type="number"
-                                step="any"
-                                value={formData.stock_inicial ?? formData.cantidad_existente ?? 0}
-                                onChange={e => {
-                                    const val = Number(e.target.value);
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        stock_inicial: val,
-                                        cantidad_existente: initialData ? prev.cantidad_existente : val
-                                    }));
-                                }}
+                                type="text"
+                                inputMode="decimal"
+                                value={stockInicialStr}
+                                onChange={handleStockInicialChange}
                                 required
                                 className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
@@ -263,6 +306,7 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                             {initialData ? `Stock actual: ${initialData.cantidad_existente}` : 'Cantidad inicial disponible'}
                         </p>
                     </div>
+
                     {/* Stock Minimo */}
                     <div className="mb-2">
                         <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300">Stock Mínimo:</label>
@@ -271,51 +315,16 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                                 <BarChart className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
-                                type="number"
-                                step="any"
-                                value={formData.stock_minimo}
-                                onChange={e => setFormData({ ...formData, stock_minimo: Number(e.target.value) })}
+                                type="text"
+                                inputMode="decimal"
+                                value={stockMinimoStr}
+                                onChange={handleStockMinimoChange}
                                 required
                                 className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="0"
                             />
                         </div>
                         <p className="text-xs text-gray-400 mt-1">Alerta cuando stock ≤ mínimo</p>
-                    </div>
-                    {/* Precio Compra */}
-                    <div className="mb-2">
-                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300">P. Compra (por Unidad):</label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.precio_compra ?? 0}
-                                onChange={e => setFormData({ ...formData, precio_compra: Number(e.target.value) })}
-                                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">Costo unitario de compra</p>
-                    </div>
-                    {/* Precio Venta */}
-                    <div className="mb-2">
-                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300">P. Venta (por Unidad):</label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-5 w-5 text-emerald-500" />
-                            </div>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.precio_venta ?? 0}
-                                onChange={e => setFormData({ ...formData, precio_venta: Number(e.target.value) })}
-                                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                            />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">Precio cobrado al cliente</p>
                     </div>
                 </div>
 

@@ -201,8 +201,6 @@ export const InventarioList = () => {
             'Salidas (-)': item.salidas ?? 0,
             'Stock Actual': item.cantidad_existente,
             'Stock Mínimo': item.stock_minimo,
-            'Precio Compra (Bs.)': Number(item.precio_compra || 0).toFixed(2),
-            'Precio Venta (Bs.)': Number(item.precio_venta || 0).toFixed(2),
             'Unidad': item.unidad_medida?.medida || '-',
             'Grupo': item.grupo_inventario?.grupo || '-',
             'Estado': item.estado
@@ -215,13 +213,13 @@ export const InventarioList = () => {
     const exportToPDF = async () => {
         await exportStandardPDF({
             title: 'Control de Inventario y Stock',
-            subtitle: 'EDKOR MOTORS - Existencias, Precios y Kardex de Materiales y Repuestos',
+            subtitle: 'EDKOR MOTORS - Existencias y Kardex de Materiales y Repuestos',
             filtersText: searchTerm ? `Búsqueda: "${searchTerm}"` : undefined,
             totalRecords: filteredInventarios.length,
             totalRecordsLabel: 'Items Registrados',
             filename: `Inventario_${new Date().toISOString().split('T')[0]}.pdf`,
             tableOptions: {
-                head: [['#', 'Código', 'Descripción', 'Stock Ini.', 'Entr.', 'Sal.', 'Stock Act.', 'Mín.', 'P. Compra', 'P. Venta', 'Unidad', 'Grupo', 'Estado']],
+                head: [['#', 'Código', 'Descripción', 'Stock Ini.', 'Entr.', 'Sal.', 'Stock Act.', 'Mín.', 'Unidad', 'Grupo', 'Estado']],
                 body: filteredInventarios.map((item, idx) => [
                     idx + 1,
                     item.codigo || '-',
@@ -231,26 +229,22 @@ export const InventarioList = () => {
                     item.salidas ?? 0,
                     item.cantidad_existente,
                     item.stock_minimo,
-                    `Bs ${Number(item.precio_compra || 0).toFixed(2)}`,
-                    `Bs ${Number(item.precio_venta || 0).toFixed(2)}`,
                     item.unidad_medida?.medida || '-',
                     item.grupo_inventario?.grupo || '-',
                     (item.estado || 'ACTIVO').toUpperCase()
                 ]),
                 columnStyles: {
                     0: { halign: 'center', cellWidth: 8 },
-                    1: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
-                    2: { cellWidth: 45, fontStyle: 'bold' },
-                    3: { halign: 'center', cellWidth: 15 },
-                    4: { halign: 'center', cellWidth: 13 },
-                    5: { halign: 'center', cellWidth: 13 },
-                    6: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
-                    7: { halign: 'center', cellWidth: 12 },
-                    8: { halign: 'right', cellWidth: 20 },
-                    9: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
-                    10: { halign: 'center', cellWidth: 16 },
-                    11: { cellWidth: 25 },
-                    12: { halign: 'center', cellWidth: 16, fontSize: 6.5, fontStyle: 'bold' }
+                    1: { halign: 'center', cellWidth: 20, fontStyle: 'bold' },
+                    2: { cellWidth: 65, fontStyle: 'bold' },
+                    3: { halign: 'center', cellWidth: 16 },
+                    4: { halign: 'center', cellWidth: 14 },
+                    5: { halign: 'center', cellWidth: 14 },
+                    6: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
+                    7: { halign: 'center', cellWidth: 14 },
+                    8: { halign: 'center', cellWidth: 20 },
+                    9: { cellWidth: 32 },
+                    10: { halign: 'center', cellWidth: 18, fontSize: 6.5, fontStyle: 'bold' }
                 }
             }
         });
@@ -365,8 +359,6 @@ export const InventarioList = () => {
                                 <th className="p-3 text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider text-center" title="Salidas consumidas en órdenes de trabajo">Salidas (-)</th>
                                 <th className="p-3 text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-center" title="Stock Actual Disponible (Stock Ini + Entradas - Salidas)">Stock Actual</th>
                                 <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">Mín.</th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">P. Compra</th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">P. Venta</th>
                                 <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unidad</th>
                                 <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Grupo</th>
                                 <th className="p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
@@ -376,13 +368,13 @@ export const InventarioList = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={14} className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={12} className="p-8 text-center text-gray-500 dark:text-gray-400">
                                         Cargando...
                                     </td>
                                 </tr>
                             ) : currentItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={14} className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={12} className="p-8 text-center text-gray-500 dark:text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -399,7 +391,7 @@ export const InventarioList = () => {
                                     const entradas = Number(item.entradas ?? 0);
                                     const salidas = Number(item.salidas ?? 0);
                                     const stockAct = Number(item.cantidad_existente ?? 0);
-                                    const isBajo = stockAct <= item.stock_minimo;
+                                    const isBajo = !(stockAct === 0 && Number(item.stock_minimo || 0) === 0) && stockAct <= Number(item.stock_minimo || 0);
 
                                     return (
                                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -437,12 +429,6 @@ export const InventarioList = () => {
                                             </td>
                                             <td className="p-3 text-center text-gray-500 dark:text-gray-400 text-xs">
                                                 {item.stock_minimo}
-                                            </td>
-                                            <td className="p-3 text-right text-gray-700 dark:text-gray-300 text-xs">
-                                                Bs. {Number(item.precio_compra || 0).toFixed(2)}
-                                            </td>
-                                            <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400 text-xs">
-                                                Bs. {Number(item.precio_venta || 0).toFixed(2)}
                                             </td>
                                             <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">
                                                 {item.unidad_medida?.medida || '-'}
@@ -558,8 +544,6 @@ export const InventarioList = () => {
                         <th className="border border-gray-300 p-1.5 text-center">Sal.</th>
                         <th className="border border-gray-300 p-1.5 text-center">Stock Act.</th>
                         <th className="border border-gray-300 p-1.5 text-center">Mín.</th>
-                        <th className="border border-gray-300 p-1.5 text-right">P. Compra</th>
-                        <th className="border border-gray-300 p-1.5 text-right">P. Venta</th>
                         <th className="border border-gray-300 p-1.5 text-center">Unidad</th>
                         <th className="border border-gray-300 p-1.5">Grupo</th>
                         <th className="border border-gray-300 p-1.5 text-center">Estado</th>
@@ -576,8 +560,6 @@ export const InventarioList = () => {
                             <td className="border border-gray-200 p-1.5 text-center text-red-700">{item.salidas ?? 0}</td>
                             <td className="border border-gray-200 p-1.5 text-center font-bold">{item.cantidad_existente}</td>
                             <td className="border border-gray-200 p-1.5 text-center">{item.stock_minimo}</td>
-                            <td className="border border-gray-200 p-1.5 text-right">Bs {Number(item.precio_compra || 0).toFixed(2)}</td>
-                            <td className="border border-gray-200 p-1.5 text-right font-bold">Bs {Number(item.precio_venta || 0).toFixed(2)}</td>
                             <td className="border border-gray-200 p-1.5 text-center">{item.unidad_medida?.medida || '-'}</td>
                             <td className="border border-gray-200 p-1.5">{item.grupo_inventario?.grupo || '-'}</td>
                             <td className="border border-gray-200 p-1.5 text-center font-bold uppercase">{item.estado}</td>

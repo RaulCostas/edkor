@@ -19,7 +19,7 @@ import { StandardExportToolbar } from '../components/common/StandardExportToolba
 import ViewOrdenModal from '../components/ViewOrdenModal';
 import UtilidadOrdenModal from '../components/UtilidadOrdenModal';
 import type { DetalleOrdenTrabajo } from '../types/detalleOrdenTrabajo';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, getLocalDateString } from '../utils/dateUtils';
 import { API_BASE_URL } from '../config';
 
 const OrdenesTrabajoList = () => {
@@ -29,6 +29,7 @@ const OrdenesTrabajoList = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTipoOrden, setSelectedTipoOrden] = useState<string>('');
+    const [selectedDateFilter, setSelectedDateFilter] = useState<'todos' | 'hoy' | 'ayer' | 'semana'>('todos');
     const [tiposOrden, setTiposOrden] = useState<TipoOrden[]>([]);
 
     const [showManual, setShowManual] = useState(false);
@@ -51,6 +52,19 @@ const OrdenesTrabajoList = () => {
 
     useEffect(() => {
         const lowerSearch = searchTerm.toLowerCase();
+        const todayStr = getLocalDateString(new Date());
+
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yesterdayDate);
+
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const mondayDate = new Date(now);
+        mondayDate.setDate(now.getDate() - diffToMonday);
+        const mondayStr = getLocalDateString(mondayDate);
+
         const filtered = ordenes.filter(o => {
             const matchesSearch =
                 (o.cliente_nombre || o.cliente)?.toLowerCase().includes(lowerSearch) ||
@@ -72,11 +86,22 @@ const OrdenesTrabajoList = () => {
                 if (!matchesTipo) return false;
             }
 
+            if (selectedDateFilter === 'hoy') {
+                const itemDate = getLocalDateString(o.fecha_registro);
+                if (itemDate !== todayStr) return false;
+            } else if (selectedDateFilter === 'ayer') {
+                const itemDate = getLocalDateString(o.fecha_registro);
+                if (itemDate !== yesterdayStr) return false;
+            } else if (selectedDateFilter === 'semana') {
+                const itemDate = getLocalDateString(o.fecha_registro);
+                if (itemDate < mondayStr || itemDate > todayStr) return false;
+            }
+
             return true;
         });
         setFilteredOrdenes(filtered);
         setCurrentPage(1);
-    }, [searchTerm, selectedTipoOrden, ordenes, tiposOrden]);
+    }, [searchTerm, selectedTipoOrden, selectedDateFilter, ordenes, tiposOrden]);
 
     const formatPhoneDisplay = (phone?: string): string => {
         if (!phone) return "-";
@@ -1051,13 +1076,65 @@ const OrdenesTrabajoList = () => {
                     </select>
                 </div>
 
-                {(searchTerm || selectedTipoOrden) && (
+                {/* Filtro Rápido de Fechas: Todas, Hoy, Ayer, Esta Semana */}
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedDateFilter('todos')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            selectedDateFilter === 'todos'
+                                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                    >
+                        Todas
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedDateFilter('hoy')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            selectedDateFilter === 'hoy'
+                                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                        title="Órdenes registradas hoy"
+                    >
+                        Hoy
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedDateFilter('ayer')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            selectedDateFilter === 'ayer'
+                                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                        title="Órdenes registradas ayer"
+                    >
+                        Ayer
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedDateFilter('semana')}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            selectedDateFilter === 'semana'
+                                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                        title="Órdenes de esta semana"
+                    >
+                        Esta Semana
+                    </button>
+                </div>
+
+                {(searchTerm || selectedTipoOrden || selectedDateFilter !== 'todos') && (
                     <button
                         onClick={() => {
                             setSearchTerm('');
                             setSelectedTipoOrden('');
+                            setSelectedDateFilter('todos');
                         }}
-                        className="px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors border border-red-200 dark:border-red-800 flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors border border-red-200 dark:border-red-800 flex items-center gap-1 cursor-pointer shrink-0"
                         title="Limpiar filtros"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

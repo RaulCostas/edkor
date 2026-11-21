@@ -34,9 +34,9 @@ const UnidadMedidaList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = unidadesMedida.filter(um =>
-            um.medida.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = unidadesMedida
+            .filter(um => um.medida.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.medida || '').localeCompare(b.medida || '', 'es', { sensitivity: 'base' }));
         setFilteredUnidadesMedida(filtered);
         setCurrentPage(1);
     }, [searchTerm, unidadesMedida]);
@@ -45,8 +45,9 @@ const UnidadMedidaList = () => {
         try {
             setLoading(true);
             const data = await getUnidadesMedida();
-            setUnidadesMedida(data);
-            setFilteredUnidadesMedida(data);
+            const sorted = [...data].sort((a, b) => (a.medida || '').localeCompare(b.medida || '', 'es', { sensitivity: 'base' }));
+            setUnidadesMedida(sorted);
+            setFilteredUnidadesMedida(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

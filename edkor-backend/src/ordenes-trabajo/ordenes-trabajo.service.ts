@@ -154,7 +154,7 @@ export class OrdenesTrabajoService {
     async findOne(id: number): Promise<OrdenTrabajo | null> {
         return await this.ordenesTrabajoRepository.findOne({
             where: { id },
-            relations: ['hoja_recepcion', 'hoja_recepcion.tipo_orden', 'hoja_recepcion.seguro', 'hoja_recepcion.inspector', 'sucursal', 'marca_auto', 'usuario']
+            relations: ['hoja_recepcion', 'hoja_recepcion.tipo_orden', 'hoja_recepcion.seguro', 'hoja_recepcion.inspector', 'hoja_recepcion.asesor', 'sucursal', 'marca_auto', 'usuario']
         });
     }
 
@@ -907,6 +907,9 @@ export class OrdenesTrabajoService {
                     orden.hoja_recepcion?.tipo_orden?.tipo_orden ||
                     (orden.hoja_recepcion as any)?.tipo_orden ||
                     'Particular',
+                asesor: orden.hoja_recepcion?.asesor
+                    ? `${orden.hoja_recepcion.asesor.nombre} ${orden.hoja_recepcion.asesor.paterno || ''}`.trim()
+                    : null,
                 estado: orden.estado,
                 moneda: orden.moneda || 'Bolivianos',
                 facturado: Boolean(orden.facturado),
@@ -936,12 +939,50 @@ export class OrdenesTrabajoService {
         };
     }
 
+    async getAsesoresConRecepcion(): Promise<any[]> {
+        const rows = await this.ordenesTrabajoRepository.manager.query(`
+            SELECT DISTINCT 
+                p.id, 
+                p.nombre, 
+                p.paterno, 
+                p.materno,
+                TRIM(CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, ''), ' ', COALESCE(p.materno, ''))) AS nombre_completo
+            FROM personal p
+            INNER JOIN hoja_recepcion hr ON hr.asesor_id = p.id
+            WHERE hr.asesor_id IS NOT NULL
+        `);
+
+        // Respaldo por si en el entorno aún no se asignaron asesores en hojas de recepción
+        if (!rows || rows.length === 0) {
+            const fallback = await this.ordenesTrabajoRepository.manager.query(`
+                SELECT 
+                    p.id, 
+                    p.nombre, 
+                    p.paterno, 
+                    p.materno,
+                    TRIM(CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, ''), ' ', COALESCE(p.materno, ''))) AS nombre_completo
+                FROM personal p
+                LEFT JOIN areas_personal a ON a.id = p.area_id
+                WHERE a.area ILIKE '%asesor%' OR p.tipo ILIKE '%asesor%'
+            `);
+            const sortedFallback = (fallback || []).sort((a: any, b: any) =>
+                (a.nombre_completo || '').localeCompare(b.nombre_completo || '')
+            );
+            return sortedFallback;
+        }
+
+        return rows.sort((a: any, b: any) =>
+            (a.nombre_completo || '').localeCompare(b.nombre_completo || '')
+        );
+    }
+
     async getUtilidadMensual(
         mes?: string,
         desde?: string,
         hasta?: string,
         sucursalId?: number | null,
         estado?: string,
+        asesorId?: number | string | null,
     ) {
         let fechaInicio: string;
         let fechaFin: string;
@@ -967,11 +1008,16 @@ export class OrdenesTrabajoService {
             .leftJoinAndSelect('ot.marca_auto', 'marca_auto')
             .leftJoinAndSelect('ot.hoja_recepcion', 'hr')
             .leftJoinAndSelect('hr.tipo_orden', 'tipo_orden')
+            .leftJoinAndSelect('hr.asesor', 'asesor')
             .where('ot.fecha_registro >= :fechaInicio AND ot.fecha_registro <= :fechaFin', { fechaInicio, fechaFin })
             .orderBy('ot.id', 'DESC');
 
         if (sucursalId) {
             qb.andWhere('(ot.sucursal_id = :sucursalId OR ot.sucursal_id IS NULL)', { sucursalId });
+        }
+
+        if (asesorId && asesorId !== 'todos' && asesorId !== '') {
+            qb.andWhere('hr.asesor_id = :asesorId', { asesorId: Number(asesorId) });
         }
 
         if (estado && estado !== 'todos' && estado !== '') {
@@ -1026,6 +1072,10 @@ export class OrdenesTrabajoService {
             totalCostos += res.total_costos;
             totalUtilidadNeta += res.utilidad_neta;
 
+            const asesorNombre = ot.hoja_recepcion?.asesor
+                ? `${ot.hoja_recepcion.asesor.nombre} ${ot.hoja_recepcion.asesor.paterno || ''}`.trim()
+                : util.orden.asesor || null;
+
             ordenesResumen.push({
                 id: ot.id,
                 nro_orden: util.orden.nro_orden,
@@ -1035,6 +1085,8 @@ export class OrdenesTrabajoService {
                 vehiculo: util.orden.vehiculo,
                 tipo_orden: util.orden.tipo_orden,
                 estado: ot.estado,
+                asesor: asesorNombre || 'Sin asesor',
+                asesor_id: ot.hoja_recepcion?.asesor_id || null,
                 moneda: util.orden.moneda,
                 facturado: util.orden.facturado,
                 nro_factura: util.orden.nro_factura,

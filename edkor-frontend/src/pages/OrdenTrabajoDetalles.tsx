@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, Calendar, DollarSign, Trash2, Edit, Save, X, Hash, Layers, Image as ImageIcon, Upload, Check, Package, User, Clock, CheckCircle, XCircle, RotateCcw, ReceiptText, ExternalLink, KeyRound, AlertCircle, Lock, Calculator } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Calendar, DollarSign, Trash2, Edit, Save, X, Hash, Layers, Image as ImageIcon, Upload, Check, Package, User, Clock, CheckCircle, XCircle, RotateCcw, RotateCw, ReceiptText, ExternalLink, KeyRound, AlertCircle, Lock, Calculator } from 'lucide-react';
 import { uploadFile } from '../services/fileService';
 import Swal from 'sweetalert2';
 import type { DetalleOrdenTrabajo, CreateDetalleOrdenTrabajoData } from '../types/detalleOrdenTrabajo';
@@ -51,6 +51,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
     const [inventarios, setInventarios] = useState<Inventario[]>([]);
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const tipoOrdenNombre = orden?.tipo_orden?.tipo_orden || orden?.hoja_recepcion?.tipo_orden?.tipo_orden || (orden as any)?.particular_seguro || particularSeguro || 'Particular';
     const isSeguro = String(tipoOrdenNombre).toLowerCase().includes('seguro');
@@ -91,6 +92,11 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         observaciones: '',
         imagenes: [] as string[]
     });
+
+    const selectedInvItem = inventarios.find(i => String(i.id) === String(formData.id_inventario));
+    const costoCompraForm = Number(selectedInvItem?.precio_compra || selectedInvItem?.costo || 0);
+    const gananciaUnitForm = Number(formData.precio_unitario || 0) - costoCompraForm;
+    const gananciaPctForm = costoCompraForm > 0 ? Number(((gananciaUnitForm / costoCompraForm) * 100).toFixed(1)) : 0;
 
     useEffect(() => {
         if (defaultMecanicoId && !formData.idpersonal_mecanico) {
@@ -322,6 +328,45 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRefresh = async () => {
+        try {
+            setRefreshing(true);
+            if (activeId) {
+                const [ordenData, detallesData, invData] = await Promise.all([
+                    getOrdenTrabajo(Number(activeId)),
+                    getDetallesByOrden(Number(activeId)),
+                    getInventarios()
+                ]);
+                setOrden(ordenData);
+                setDetalles(detallesData);
+                setInventarios(invData.filter((i: Inventario) => i.estado === 'activo'));
+
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Lista de trabajos y repuestos actualizada'
+                });
+            } else {
+                await loadData();
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudieron actualizar los datos'
+            });
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -574,7 +619,8 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         }
         const inv = inventarios.find(i => String(i.id) === String(inventarioId));
         if (inv) {
-            const precioVenta = Number(inv.precio_venta && Number(inv.precio_venta) > 0 ? inv.precio_venta : inv.costo || 0);
+            const pCompra = Number(inv.precio_compra || inv.costo || 0);
+            const precioVenta = Number(inv.precio_venta && Number(inv.precio_venta) > 0 ? inv.precio_venta : pCompra);
             setFormData(prev => ({
                 ...prev,
                 id_inventario: inventarioId,
@@ -583,6 +629,19 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                 detalle: inv.descripcion,
                 precio_unitario: precioVenta,
                 tiempo_estimado: ''
+            }));
+        }
+    };
+
+    const handleApplyProfitMargin = (pct: number) => {
+        const inv = inventarios.find(i => String(i.id) === String(formData.id_inventario));
+        if (!inv) return;
+        const pCompra = Number(inv.precio_compra || inv.costo || 0);
+        if (pCompra > 0) {
+            const nuevoPrecioVenta = Number((pCompra * (1 + pct / 100)).toFixed(2));
+            setFormData(prev => ({
+                ...prev,
+                precio_unitario: nuevoPrecioVenta
             }));
         }
     };
@@ -1853,12 +1912,24 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700 mb-6">
                 <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">Trabajos a Realizar</h2>
-                    <button
-                        onClick={handleToggleForm}
-                        className={`${showForm ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 font-medium`}
-                    >
-                        {showForm ? <Trash2 size={20} /> : <Plus size={20} />} {showForm ? 'Cancelar' : 'Agregar Trabajo'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            disabled={refreshing}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 font-medium text-sm disabled:opacity-50 cursor-pointer"
+                            title="Actualizar trabajos y repuestos cargados desde almacén"
+                        >
+                            <RotateCw size={18} className={refreshing ? 'animate-spin' : ''} />
+                            <span>{refreshing ? 'Actualizando...' : 'Actualizar'}</span>
+                        </button>
+                        <button
+                            onClick={handleToggleForm}
+                            className={`${showForm ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 font-medium`}
+                        >
+                            {showForm ? <Trash2 size={20} /> : <Plus size={20} />} {showForm ? 'Cancelar' : 'Agregar Trabajo'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Formulario en línea (Collapsible) - MOVIDO AQUÍ */}
@@ -1904,21 +1975,21 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 <Package size={15} className="text-emerald-600" />
                                                 O Repuesto / Pieza (Inventario)
                                             </label>
-                                            <select
+                                            <SearchableSelect
                                                 value={formData.id_inventario}
-                                                onChange={(e) => handleSelectInventario(e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                            >
-                                                <option value="">Seleccione repuesto...</option>
-                                                {inventarios.map(inv => {
-                                                    const pv = Number(inv.precio_venta && Number(inv.precio_venta) > 0 ? inv.precio_venta : inv.costo || 0);
-                                                    return (
-                                                        <option key={inv.id} value={inv.id}>
-                                                            {inv.codigo ? `[${inv.codigo}] ` : ''}{inv.descripcion} (Stock: {inv.cantidad_existente} - Bs {pv.toFixed(2)})
-                                                        </option>
-                                                    );
+                                                onChange={(val) => handleSelectInventario(String(val || ''))}
+                                                placeholder="Seleccione repuesto..."
+                                                searchPlaceholder="Buscar repuesto por código o descripción..."
+                                                options={inventarios.map(inv => {
+                                                    const pCompra = Number(inv.precio_compra || inv.costo || 0);
+                                                    return {
+                                                        value: String(inv.id),
+                                                        label: `${inv.codigo ? `[${inv.codigo}] ` : ''}${inv.descripcion}`,
+                                                        sublabel: `Stock: ${inv.cantidad_existente} | Costo: Bs. ${pCompra.toFixed(2)}`
+                                                    };
                                                 })}
-                                            </select>
+                                                icon={<Package size={16} className="text-emerald-600" />}
+                                            />
                                         </div>
 
                                         <div>
@@ -1941,8 +2012,54 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                         </div>
                                     </div>
 
+                                    {/* Costo de Compra y Calculadora de Ganancia para Repuestos (Seguro) */}
+                                    {Boolean(formData.id_inventario && selectedInvItem) && (
+                                        <div className="mb-4 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-700 rounded-xl shadow-xs animate-fade-in">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="p-2 bg-amber-500 text-white rounded-lg shadow-xs shrink-0">
+                                                        <Calculator size={20} />
+                                                    </span>
+                                                    <div>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                                                P. Compra Unitario (Costo):
+                                                            </span>
+                                                            <span className="text-sm font-bold text-amber-900 dark:text-amber-100 bg-white dark:bg-gray-800 px-2.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-700">
+                                                                Bs. {costoCompraForm.toFixed(2)}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                | Stock disponible: <strong className="text-gray-700 dark:text-gray-300">{selectedInvItem?.cantidad_existente}</strong> {selectedInvItem?.unidad_medida?.medida || 'unidades'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                                                            Fórmula: <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded font-mono text-[11px]">P. Venta = Costo + (Costo × % Ganancia)</code>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 mr-1">
+                                                        Calcular % Ganancia:
+                                                    </span>
+                                                    {[20, 25, 30, 40, 50].map((pct) => (
+                                                        <button
+                                                            key={pct}
+                                                            type="button"
+                                                            onClick={() => handleApplyProfitMargin(pct)}
+                                                            className="px-2.5 py-1 text-xs font-bold bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-300 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 border border-amber-300 dark:border-amber-700 rounded-lg shadow-xs transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                                                            title={`Calcular precio de venta con +${pct}% sobre costo`}
+                                                        >
+                                                            +{pct}%
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Segunda fila: Resto de campos */}
-                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                    <div className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-end ${Boolean(formData.id_inventario && costoCompraForm > 0) ? 'mb-6' : 'mb-4'}`}>
                                         {/* Detalle */}
                                         <div className="md:col-span-4">
                                             <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Detalle *</label>
@@ -2019,6 +2136,13 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     required
                                                     className="w-full pl-8 pr-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
                                                 />
+                                                {Boolean(formData.id_inventario && costoCompraForm > 0) && (
+                                                    <div className="absolute top-full left-0 mt-1 whitespace-nowrap text-[11px] leading-tight pointer-events-none">
+                                                        <span className={`font-semibold ${gananciaUnitForm >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                                                            Utilidad: {gananciaUnitForm >= 0 ? '+' : ''}Bs. {gananciaUnitForm.toFixed(2)} ({gananciaPctForm}%)
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -2114,21 +2238,21 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 <Package size={15} className="text-emerald-600" />
                                                 O Repuesto / Pieza (Inventario)
                                             </label>
-                                            <select
+                                            <SearchableSelect
                                                 value={formData.id_inventario}
-                                                onChange={(e) => handleSelectInventario(e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                            >
-                                                <option value="">Seleccione repuesto...</option>
-                                                {inventarios.map(inv => {
-                                                    const pv = Number(inv.precio_venta && Number(inv.precio_venta) > 0 ? inv.precio_venta : inv.costo || 0);
-                                                    return (
-                                                        <option key={inv.id} value={inv.id}>
-                                                            {inv.codigo ? `[${inv.codigo}] ` : ''}{inv.descripcion} (Stock: {inv.cantidad_existente} - Bs {pv.toFixed(2)})
-                                                        </option>
-                                                    );
+                                                onChange={(val) => handleSelectInventario(String(val || ''))}
+                                                placeholder="Seleccione repuesto..."
+                                                searchPlaceholder="Buscar repuesto por código o descripción..."
+                                                options={inventarios.map(inv => {
+                                                    const pCompra = Number(inv.precio_compra || inv.costo || 0);
+                                                    return {
+                                                        value: String(inv.id),
+                                                        label: `${inv.codigo ? `[${inv.codigo}] ` : ''}${inv.descripcion}`,
+                                                        sublabel: `Stock: ${inv.cantidad_existente} | Costo: Bs. ${pCompra.toFixed(2)}`
+                                                    };
                                                 })}
-                                            </select>
+                                                icon={<Package size={16} className="text-emerald-600" />}
+                                            />
                                         </div>
 
                                         {/* Asignar Mecánico */}
@@ -2151,6 +2275,52 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                             </select>
                                         </div>
                                     </div>
+
+                                    {/* Costo de Compra y Calculadora de Ganancia para Repuestos (Particular) */}
+                                    {Boolean(formData.id_inventario && selectedInvItem) && (
+                                        <div className="mb-4 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-700 rounded-xl shadow-xs animate-fade-in">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="p-2 bg-amber-500 text-white rounded-lg shadow-xs shrink-0">
+                                                        <Calculator size={20} />
+                                                    </span>
+                                                    <div>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                                                P. Compra Unitario (Costo):
+                                                            </span>
+                                                            <span className="text-sm font-bold text-amber-900 dark:text-amber-100 bg-white dark:bg-gray-800 px-2.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-700">
+                                                                Bs. {costoCompraForm.toFixed(2)}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                | Stock disponible: <strong className="text-gray-700 dark:text-gray-300">{selectedInvItem?.cantidad_existente}</strong> {selectedInvItem?.unidad_medida?.medida || 'unidades'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                                                            Fórmula: <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded font-mono text-[11px]">P. Venta = Costo + (Costo × % Ganancia)</code>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 mr-1">
+                                                        Calcular % Ganancia:
+                                                    </span>
+                                                    {[20, 25, 30, 40, 50].map((pct) => (
+                                                        <button
+                                                            key={pct}
+                                                            type="button"
+                                                            onClick={() => handleApplyProfitMargin(pct)}
+                                                            className="px-2.5 py-1 text-xs font-bold bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-300 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 border border-amber-300 dark:border-amber-700 rounded-lg shadow-xs transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                                                            title={`Calcular precio de venta con +${pct}% sobre costo`}
+                                                        >
+                                                            +{pct}%
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {isCategoriaTercero(preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))) && (
                                         <div className="mb-4 p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border-2 border-purple-300 dark:border-purple-700 rounded-xl shadow-xs">
@@ -2201,7 +2371,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                         </div>
                                     )}
 
-                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-end">
+                                    <div className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-end ${Boolean(formData.id_inventario && costoCompraForm > 0) ? 'mb-6' : 'mb-4'}`}>
                                         {/* Detalle */}
                                         <div className="md:col-span-5">
                                             <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Detalle *</label>
@@ -2255,6 +2425,13 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     required
                                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
                                                 />
+                                                {Boolean(formData.id_inventario && costoCompraForm > 0) && (
+                                                    <div className="absolute top-full left-0 mt-1 whitespace-nowrap text-[11px] leading-tight pointer-events-none">
+                                                        <span className={`font-semibold ${gananciaUnitForm >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                                                            Utilidad: {gananciaUnitForm >= 0 ? '+' : ''}Bs. {gananciaUnitForm.toFixed(2)} ({gananciaPctForm}%)
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -2916,32 +3093,36 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
 
                                 {/* Selector de Repuesto Inventario */}
                                 <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                        <Package size={15} className="text-emerald-600" />
                                         Repuesto / Pieza (Inventario)
                                     </label>
-                                    <select
+                                    <SearchableSelect
                                         value={editForm.id_inventario}
-                                        onChange={(e) => {
-                                            const inv = inventarios.find(i => String(i.id) === String(e.target.value));
+                                        onChange={(val) => {
+                                            const inv = inventarios.find(i => String(i.id) === String(val));
                                             const pv = inv ? Number(inv.precio_venta && Number(inv.precio_venta) > 0 ? inv.precio_venta : inv.costo || 0) : editForm.precio_unitario;
                                             setEditForm({
                                                 ...editForm,
-                                                id_inventario: e.target.value,
+                                                id_inventario: String(val || ''),
                                                 idprecio_taller: '',
                                                 idprecio_seguro: '',
                                                 detalle: inv ? inv.descripcion : editForm.detalle,
                                                 precio_unitario: pv
                                             });
                                         }}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                    >
-                                        <option value="">Sin repuesto de inventario...</option>
-                                        {inventarios.map(inv => (
-                                            <option key={inv.id} value={inv.id}>
-                                                {inv.descripcion} (Stock: {inv.cantidad_existente})
-                                            </option>
-                                        ))}
-                                    </select>
+                                        placeholder="Sin repuesto de inventario..."
+                                        searchPlaceholder="Buscar repuesto por código o descripción..."
+                                        options={inventarios.map(inv => {
+                                            const pCompra = Number(inv.precio_compra || inv.costo || 0);
+                                            return {
+                                                value: String(inv.id),
+                                                label: `${inv.codigo ? `[${inv.codigo}] ` : ''}${inv.descripcion}`,
+                                                sublabel: `Stock: ${inv.cantidad_existente} | Costo: Bs. ${pCompra.toFixed(2)}`
+                                            };
+                                        })}
+                                        icon={<Package size={16} className="text-emerald-600" />}
+                                    />
                                 </div>
                             </div>
 

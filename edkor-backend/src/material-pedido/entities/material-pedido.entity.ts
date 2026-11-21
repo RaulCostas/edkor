@@ -1,6 +1,7 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Proveedor } from '../../proveedores/entities/proveedor.entity';
 import { Sucursal } from '../../sucursales/entities/sucursal.entity';
+import { DetalleMaterialPedido } from '../../detalle-material-pedido/entities/detalle-material-pedido.entity';
 
 @Entity('material_pedido')
 export class MaterialPedido {
@@ -44,5 +45,8 @@ export class MaterialPedido {
 
     @Column('int', { nullable: true })
     idorden_trabajo: number;
+
+    @OneToMany(() => DetalleMaterialPedido, (d) => d.material_pedido)
+    detalles: DetalleMaterialPedido[];
 }
 

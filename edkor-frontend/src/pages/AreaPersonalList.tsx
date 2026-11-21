@@ -32,9 +32,9 @@ const AreaPersonalList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = areas.filter(a =>
-            a.area.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = areas
+            .filter(a => a.area.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.area || '').localeCompare(b.area || '', 'es', { sensitivity: 'base' }));
         setFilteredAreas(filtered);
         setCurrentPage(1);
     }, [searchTerm, areas]);
@@ -43,8 +43,9 @@ const AreaPersonalList = () => {
         try {
             setLoading(true);
             const data = await getAreasPersonal();
-            setAreas(data);
-            setFilteredAreas(data);
+            const sorted = [...data].sort((a, b) => (a.area || '').localeCompare(b.area || '', 'es', { sensitivity: 'base' }));
+            setAreas(sorted);
+            setFilteredAreas(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

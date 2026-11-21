@@ -81,11 +81,7 @@ export class DetalleMaterialPedidoService {
 
   async remove(id: number) {
     const detalle = await this.findOne(id);
-    const inventario = await this.inventarioRepository.findOneBy({ id: detalle.idinventario });
-    if (inventario) {
-      inventario.cantidad_existente = Math.max(0, Number(inventario.cantidad_existente || 0) - Number(detalle.cantidad || 0));
-      await this.inventarioRepository.save(inventario);
-    }
+    await this.inventarioService.revertirIngresoDetalle(id);
     return await this.detalleRepository.remove(detalle);
   }
 }

@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { CreateMaterialPedidoDto } from './dto/create-material-pedido.dto';
 import { UpdateMaterialPedidoDto } from './dto/update-material-pedido.dto';
 import { MaterialPedido } from './entities/material-pedido.entity';
+import { InventarioService } from '../inventario/inventario.service';
 
 @Injectable()
 export class MaterialPedidoService {
   constructor(
     @InjectRepository(MaterialPedido)
     private readonly materialPedidoRepository: Repository<MaterialPedido>,
+    private readonly inventarioService: InventarioService,
   ) { }
 
   async create(createMaterialPedidoDto: CreateMaterialPedidoDto, sucursalId: number | null = null) {
@@ -21,13 +23,13 @@ export class MaterialPedidoService {
   }
 
   async findAll(sucursalId: number | null = null) {
-    const whereClause: any = {};
+    const whereClause: any = { estado: 'activo' };
     if (sucursalId) {
         whereClause.sucursal = { id: sucursalId };
     }
     return await this.materialPedidoRepository.find({
       where: whereClause,
-      relations: ['sucursal'],
+      relations: ['sucursal', 'detalles', 'detalles.inventario', 'detalles.inventario.unidad_medida'],
       order: {
         fecha: 'DESC',
         id: 'DESC',
@@ -36,7 +38,10 @@ export class MaterialPedidoService {
   }
 
   async findOne(id: number) {
-    const pedido = await this.materialPedidoRepository.findOneBy({ id });
+    const pedido = await this.materialPedidoRepository.findOne({
+      where: { id },
+      relations: ['sucursal', 'detalles', 'detalles.inventario', 'detalles.inventario.unidad_medida'],
+    });
     if (!pedido) {
       throw new NotFoundException(`MaterialPedido #${id} not found`);
     }
@@ -51,7 +56,11 @@ export class MaterialPedidoService {
 
   async remove(id: number) {
     const pedido = await this.findOne(id);
-    // Soft delete usually means setting status to inactive, assuming 'estado' field usage
+
+    // 1. Revertir inventario (lotes, stock acumulado y kardex)
+    await this.inventarioService.revertirIngresoCompra(id);
+
+    // 2. Marcar pedido como inactivo
     pedido.estado = 'inactivo';
     return await this.materialPedidoRepository.save(pedido);
   }

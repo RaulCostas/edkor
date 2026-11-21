@@ -32,9 +32,9 @@ const ComisionTarjetaList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = comisiones.filter(ct =>
-            ct.red_banco.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = comisiones
+            .filter(ct => ct.red_banco.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.red_banco || '').localeCompare(b.red_banco || '', 'es', { sensitivity: 'base' }));
         setFilteredComisiones(filtered);
         setCurrentPage(1);
     }, [searchTerm, comisiones]);
@@ -43,8 +43,9 @@ const ComisionTarjetaList = () => {
         try {
             setLoading(true);
             const data = await getComisionesTarjeta();
-            setComisiones(data);
-            setFilteredComisiones(data);
+            const sorted = [...data].sort((a, b) => (a.red_banco || '').localeCompare(b.red_banco || '', 'es', { sensitivity: 'base' }));
+            setComisiones(sorted);
+            setFilteredComisiones(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

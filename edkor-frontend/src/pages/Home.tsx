@@ -172,12 +172,14 @@ const Home = () => {
 
         setCumpleaneros(Array.isArray(cumpleData.data) ? cumpleData.data : []);
 
-        // Filter Low Stock
-        const lowStock = inventariosData.filter(
-          (item) =>
-            item.estado === "activo" &&
-            item.cantidad_existente <= item.stock_minimo,
-        );
+        // Filter Low Stock (Excluir ítems con stock actual 0 y stock mínimo 0)
+        const lowStock = inventariosData.filter((item) => {
+          if (item.estado !== "activo") return false;
+          const stockAct = Number(item.cantidad_existente || 0);
+          const stockMin = Number(item.stock_minimo || 0);
+          if (stockAct === 0 && stockMin === 0) return false;
+          return stockAct <= stockMin;
+        });
         setLowStockItems(lowStock);
 
         // Filter In Progress Orders (Activas y En Proceso)

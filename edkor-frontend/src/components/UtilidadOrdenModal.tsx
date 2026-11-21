@@ -79,6 +79,11 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                   <span className="inline-flex items-center gap-1 font-mono font-semibold">
                     <Car size={12} /> {data.orden.placa} ({data.orden.vehiculo})
                   </span>
+                  {data.orden.asesor && (
+                    <span className="inline-flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                      Asesor: {data.orden.asesor}
+                    </span>
+                  )}
                   <span>
                     Fecha:{" "}
                     {new Date(data.orden.fecha_registro).toLocaleDateString()}
@@ -144,7 +149,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                     <Wrench size={16} />
                   </div>
                   <div className="text-xl font-extrabold text-amber-700 dark:text-amber-300 font-mono">
-                    - {sym} {data.resumen.costo_mecanicos.toFixed(2)}
+                    {sym} {data.resumen.costo_mecanicos.toFixed(2)}
                   </div>
                   <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
@@ -165,7 +170,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                     <Package size={16} />
                   </div>
                   <div className="text-xl font-extrabold text-purple-700 dark:text-purple-300 font-mono">
-                    - {sym} {data.resumen.costo_repuestos.toFixed(2)}
+                    {sym} {data.resumen.costo_repuestos.toFixed(2)}
                   </div>
                   <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                     Precio venta repuestos: {sym}{" "}
@@ -183,7 +188,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                       <ExternalLink size={16} />
                     </div>
                     <div className="text-xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono">
-                      - {sym} {data.resumen.costo_terceros?.toFixed(2)}
+                      {sym} {data.resumen.costo_terceros?.toFixed(2)}
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                       Costo externo (torno, alineado, etc.)
@@ -355,7 +360,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                               {sym} {srv.ingreso_total.toFixed(2)}
                             </td>
                             <td className={`py-2 px-3 text-right font-mono font-semibold ${srv.es_tercero ? 'text-purple-600 dark:text-purple-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                              - {sym} {(srv.costo_tercero || srv.costo_mecanico || 0).toFixed(2)}
+                              {sym} {(srv.costo_tercero || srv.costo_mecanico || 0).toFixed(2)}
                             </td>
                             <td className="py-2 px-3 text-center">
                               {srv.es_tercero ? (
@@ -469,7 +474,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                               {sym} {rep.costo_compra_unitario.toFixed(2)}
                             </td>
                             <td className="py-2 px-3 text-right font-mono font-semibold text-purple-700 dark:text-purple-300">
-                              - {sym} {rep.costo_compra_total.toFixed(2)}
+                              {sym} {rep.costo_compra_total.toFixed(2)}
                             </td>
                             <td className="py-2 px-3 text-right font-mono text-gray-700 dark:text-gray-300">
                               {sym} {rep.precio_venta_unitario.toFixed(2)}
@@ -521,7 +526,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                       <div className="flex justify-between text-amber-600 dark:text-amber-400">
                         <span>(-) Descuento otorgado al cliente:</span>
                         <span className="font-mono font-semibold">
-                          - {sym} {data.resumen.descuento.toFixed(2)}
+                          {sym} {data.resumen.descuento.toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -537,13 +542,13 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                     <div className="flex justify-between text-amber-700 dark:text-amber-300">
                       <span>(-) Pago Total a Mecánicos:</span>
                       <span className="font-mono font-semibold">
-                        - {sym} {data.resumen.costo_mecanicos.toFixed(2)}
+                        {sym} {data.resumen.costo_mecanicos.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between text-purple-700 dark:text-purple-300">
                       <span>(-) Costo de Compra de Repuestos:</span>
                       <span className="font-mono font-semibold">
-                        - {sym} {data.resumen.costo_repuestos.toFixed(2)}
+                        {sym} {data.resumen.costo_repuestos.toFixed(2)}
                       </span>
                     </div>
                     {data.resumen.comisiones_tarjeta > 0 && (
@@ -552,7 +557,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                           <CreditCard size={12} /> (-) Comisión Bancaria Tarjeta:
                         </span>
                         <span className="font-mono font-semibold">
-                          - {sym} {data.resumen.comisiones_tarjeta.toFixed(2)}
+                          {sym} {data.resumen.comisiones_tarjeta.toFixed(2)}
                         </span>
                       </div>
                     )}

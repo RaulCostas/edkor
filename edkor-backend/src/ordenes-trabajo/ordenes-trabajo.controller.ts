@@ -28,12 +28,18 @@ export class OrdenesTrabajoController {
         return this.ordenesTrabajoService.findTrabajosRechazadosByPlaca(placa);
     }
 
+    @Get('utilidad-mensual/asesores')
+    getAsesoresConRecepcion() {
+        return this.ordenesTrabajoService.getAsesoresConRecepcion();
+    }
+
     @Get('utilidad-mensual')
     getUtilidadMensual(
         @Query('mes') mes?: string,
         @Query('desde') desde?: string,
         @Query('hasta') hasta?: string,
         @Query('estado') estado?: string,
+        @Query('asesor_id') asesorId?: string,
         @Headers('x-sucursal-id') sucursalId?: string,
     ) {
         return this.ordenesTrabajoService.getUtilidadMensual(
@@ -42,6 +48,7 @@ export class OrdenesTrabajoController {
             hasta,
             sucursalId ? +sucursalId : null,
             estado,
+            asesorId ? +asesorId : null,
         );
     }
 

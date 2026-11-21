@@ -32,9 +32,9 @@ const TipoVehiculoList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = tiposVehiculos.filter(tv =>
-            tv.tipo.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = tiposVehiculos
+            .filter(tv => tv.tipo.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.tipo || '').localeCompare(b.tipo || '', 'es', { sensitivity: 'base' }));
         setFilteredTipos(filtered);
         setCurrentPage(1);
     }, [searchTerm, tiposVehiculos]);
@@ -43,8 +43,9 @@ const TipoVehiculoList = () => {
         try {
             setLoading(true);
             const data = await getTiposVehiculos();
-            setTiposVehiculos(data);
-            setFilteredTipos(data);
+            const sorted = [...data].sort((a, b) => (a.tipo || '').localeCompare(b.tipo || '', 'es', { sensitivity: 'base' }));
+            setTiposVehiculos(sorted);
+            setFilteredTipos(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

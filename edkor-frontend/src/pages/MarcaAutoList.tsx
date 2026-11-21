@@ -32,9 +32,9 @@ const MarcaAutoList = () => {
 
     useEffect(() => {
         const lowerSearchTerm = searchTerm.toLowerCase();
-        const filtered = marcas.filter(m =>
-            m.marca.toLowerCase().includes(lowerSearchTerm)
-        );
+        const filtered = marcas
+            .filter(m => m.marca.toLowerCase().includes(lowerSearchTerm))
+            .sort((a, b) => (a.marca || '').localeCompare(b.marca || '', 'es', { sensitivity: 'base' }));
         setFilteredMarcas(filtered);
         setCurrentPage(1);
     }, [searchTerm, marcas]);
@@ -43,8 +43,9 @@ const MarcaAutoList = () => {
         try {
             setLoading(true);
             const { data } = await getMarcasAuto('', 1000, 0); // Fetch all for client-side filtering/pagination
-            setMarcas(data);
-            setFilteredMarcas(data);
+            const sorted = [...data].sort((a, b) => (a.marca || '').localeCompare(b.marca || '', 'es', { sensitivity: 'base' }));
+            setMarcas(sorted);
+            setFilteredMarcas(sorted);
         } catch (err: any) {
             console.error(err);
             Swal.fire({

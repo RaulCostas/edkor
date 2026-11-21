@@ -209,21 +209,35 @@ const ProveedoresPedidos = () => {
         if (result.isConfirmed) {
             try {
                 await deleteMaterialPedido(id);
-                Swal.fire('Eliminado', 'El registro de compra ha sido eliminado.', 'success');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Eliminado',
+                    text: 'El registro de compra ha sido eliminado.',
+                    showConfirmButton: false,
+                    timer: 1500,
+                });
                 loadPedidos();
-            } catch (error) {
+            } catch (error: any) {
                 console.error(error);
-                Swal.fire('Error', 'No se pudo eliminar el registro', 'error');
+                const msg = error?.response?.data?.message || 'No se pudo eliminar el registro';
+                Swal.fire('Error', msg, 'error');
             }
         }
     };
 
 
 
-    const filteredPedidos = pedidos.filter(pedido =>
-        pedido.proveedor.proveedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pedido.observaciones?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPedidos = pedidos.filter(pedido => {
+        const term = searchTerm.toLowerCase().trim();
+        if (!term) return true;
+        const matchesProveedor = pedido.proveedor?.proveedor?.toLowerCase().includes(term);
+        const matchesObservaciones = pedido.observaciones?.toLowerCase().includes(term);
+        const matchesItems = pedido.detalles?.some(d =>
+            d.inventario?.descripcion?.toLowerCase().includes(term) ||
+            d.inventario?.codigo?.toLowerCase().includes(term)
+        );
+        return matchesProveedor || matchesObservaciones || matchesItems;
+    });
 
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -241,6 +255,7 @@ const ProveedoresPedidos = () => {
             'ID Compra': p.id,
             'Fecha': formatDate(p.fecha),
             'Proveedor': p.proveedor?.proveedor || '-',
+            'Materiales / Repuestos': (p.detalles || []).map(d => `${d.cantidad}x ${d.inventario?.codigo ? `[${d.inventario.codigo}] ` : ''}${d.inventario?.descripcion || 'Material'}`).join(' | ') || '-',
             'Total (Bs)': Number(p.total || 0).toFixed(2),
             'Estado Pago': p.pagado ? 'Pagado' : 'Pendiente',
             'Observaciones': p.observaciones || '-'
@@ -259,24 +274,24 @@ const ProveedoresPedidos = () => {
             totalRecordsLabel: 'Compras Registradas',
             filename: `Compras_Material_${new Date().toISOString().split('T')[0]}.pdf`,
             tableOptions: {
-                head: [['#', 'N° Compra', 'Fecha', 'Proveedor', 'Total (Bs)', 'Estado Pago', 'Observaciones']],
+                head: [['#', 'N° Compra', 'Fecha', 'Proveedor', 'Materiales / Repuestos', 'Total (Bs)', 'Estado Pago']],
                 body: filteredPedidos.map((p, idx) => [
                     idx + 1,
                     `#${p.id}`,
                     formatDate(p.fecha),
                     p.proveedor?.proveedor || '-',
+                    (p.detalles || []).map(d => `${d.cantidad}x ${d.inventario?.descripcion || 'Material'}`).join(', ') || '-',
                     `Bs ${Number(p.total || 0).toFixed(2)}`,
                     p.pagado ? 'PAGADO' : 'PENDIENTE',
-                    p.observaciones || '-'
                 ]),
                 columnStyles: {
                     0: { halign: 'center', cellWidth: 8 },
-                    1: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
-                    2: { halign: 'center', cellWidth: 22 },
-                    3: { cellWidth: 45, fontStyle: 'bold' },
-                    4: { halign: 'right', cellWidth: 26, fontStyle: 'bold' },
-                    5: { halign: 'center', cellWidth: 22, fontSize: 6.5, fontStyle: 'bold' },
-                    6: { cellWidth: 'auto' }
+                    1: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
+                    2: { halign: 'center', cellWidth: 18 },
+                    3: { cellWidth: 35, fontStyle: 'bold' },
+                    4: { cellWidth: 60, fontSize: 6.5 },
+                    5: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+                    6: { halign: 'center', cellWidth: 18, fontSize: 6.5, fontStyle: 'bold' }
                 }
             }
         });
@@ -341,7 +356,7 @@ const ProveedoresPedidos = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Buscar por proveedor..."
+                            placeholder="Buscar por proveedor, repuesto o código..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -371,6 +386,7 @@ const ProveedoresPedidos = () => {
                                 <th className="p-4">#</th>
                                 <th className="p-4">Fecha</th>
                                 <th className="p-4">Proveedor</th>
+                                <th className="p-4">Materiales / Repuestos Comprados</th>
                                 <th className="p-4 text-right">Total</th>
                                 <th className="p-4 text-center">Estado Pago</th>
                                 <th className="p-4 text-center">Acciones</th>
@@ -380,12 +396,43 @@ const ProveedoresPedidos = () => {
                             {currentItems.map((pedido, index) => (
                                 <tr key={pedido.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                     <td className="p-4 text-gray-900 dark:text-gray-200 font-medium">{indexOfFirstItem + index + 1}</td>
-                                    <td className="p-4 text-gray-700 dark:text-gray-300">
+                                    <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                         {formatDate(pedido.fecha)}
                                     </td>
-                                    <td className="p-4 text-gray-700 dark:text-gray-300 font-medium">{pedido.proveedor.proveedor}</td>
-                                    <td className="p-4 text-right font-bold text-gray-900 dark:text-white">
-                                        {Number(pedido.total).toFixed(2)}
+                                    <td className="p-4 text-gray-700 dark:text-gray-300 font-medium">
+                                        <div>{pedido.proveedor.proveedor}</div>
+                                        {pedido.proveedor.celular && (
+                                            <div className="text-[11px] text-gray-400 font-mono">Cel: {pedido.proveedor.celular}</div>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        {pedido.detalles && pedido.detalles.length > 0 ? (
+                                            <div className="flex flex-col gap-1.5 max-w-sm sm:max-w-md">
+                                                {pedido.detalles.map((d, i) => (
+                                                    <div key={d.id || i} className="flex items-center gap-2 text-xs bg-gray-50/80 dark:bg-gray-700/50 p-1.5 rounded-lg border border-gray-100 dark:border-gray-600/40">
+                                                        <span className="font-semibold text-purple-700 dark:text-purple-300 bg-purple-100/80 dark:bg-purple-900/50 px-2 py-0.5 rounded font-mono text-[11px] shrink-0 border border-purple-200 dark:border-purple-800">
+                                                            {d.cantidad} {d.inventario?.unidad_medida?.medida || 'u.'}
+                                                        </span>
+                                                        <span className="text-gray-800 dark:text-gray-200 truncate font-medium flex-1" title={d.inventario?.descripcion}>
+                                                            {d.inventario?.codigo && (
+                                                                <span className="font-mono text-purple-600 dark:text-purple-400 font-semibold mr-1">
+                                                                    [{d.inventario.codigo}]
+                                                                </span>
+                                                            )}
+                                                            {d.inventario?.descripcion || 'Material'}
+                                                        </span>
+                                                        <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono shrink-0 font-medium">
+                                                            Bs. {Number(d.total || 0).toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">Sin ítems</span>
+                                        )}
+                                    </td>
+                                    <td className="p-4 text-right font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                                        Bs. {Number(pedido.total).toFixed(2)}
                                     </td>
                                     <td className="p-4 text-center">
                                         {pedido.pagado ? (
@@ -438,7 +485,7 @@ const ProveedoresPedidos = () => {
                             ))}
                             {currentItems.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">
                                         No se encontraron pedidos.
                                     </td>
                                 </tr>
