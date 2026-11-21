@@ -511,6 +511,17 @@ const compressImageFile = (file: File): Promise<string> => {
     e.preventDefault();
     const clean = nuevoTipoOrdenNombre.trim();
     if (!clean) return;
+
+    const duplicado = tiposOrden.find(t => t.tipo_orden?.trim().toLowerCase() === clean.toLowerCase());
+    if (duplicado) {
+      Swal.fire({
+        icon: "warning",
+        title: "Tipo de Orden existente",
+        text: `Ya existe un tipo de orden con el nombre "${clean}".`,
+      });
+      return;
+    }
+
     try {
       setSavingTipoOrden(true);
       const created = await createTipoOrden({ tipo_orden: clean, estado: "activo" });
@@ -537,6 +548,17 @@ const compressImageFile = (file: File): Promise<string> => {
     e.preventDefault();
     const clean = nuevaMarcaNombre.trim();
     if (!clean) return;
+
+    const duplicado = marcas.find(m => m.marca?.trim().toLowerCase() === clean.toLowerCase());
+    if (duplicado) {
+      Swal.fire({
+        icon: "warning",
+        title: "Marca existente",
+        text: `Ya existe una marca con el nombre "${clean}".`,
+      });
+      return;
+    }
+
     try {
       setSavingMarca(true);
       const created = await createMarcaAuto({ marca: clean, estado: "activo" });

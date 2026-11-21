@@ -135,9 +135,41 @@ const ComisionTarjetaList = () => {
     };
 
     const handleSave = async (comisionData: Omit<ComisionTarjeta, 'id'>) => {
+        const nombreNuevo = (comisionData.red_banco || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre de la Red Banco es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = comisiones.find(c =>
+            c.red_banco?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingComision || String(c.id) !== String(editingComision.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Red Banco existente inactiva',
+                    text: `La red banco "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Red Banco duplicada',
+                    text: `Ya existe una red banco con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingComision) {
-                await updateComisionTarjeta(editingComision.id, comisionData);
+                await updateComisionTarjeta(editingComision.id, { ...comisionData, red_banco: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -146,7 +178,7 @@ const ComisionTarjetaList = () => {
                     timer: 1500
                 });
             } else {
-                await createComisionTarjeta(comisionData);
+                await createComisionTarjeta({ ...comisionData, red_banco: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -158,11 +190,11 @@ const ComisionTarjetaList = () => {
             setShowModal(false);
             setEditingComision(null);
             fetchComisiones();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
             throw err;
         }

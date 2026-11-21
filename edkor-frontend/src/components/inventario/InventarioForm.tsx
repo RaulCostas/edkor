@@ -128,6 +128,17 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
         e.preventDefault();
         const trimmed = nuevaMedida.trim();
         if (!trimmed) return;
+
+        const duplicado = unidades.find(u => u.medida?.trim().toLowerCase() === trimmed.toLowerCase());
+        if (duplicado) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Unidad existente',
+                text: `Ya existe una unidad de medida con el nombre "${trimmed}".`,
+            });
+            return;
+        }
+
         setSavingUnidad(true);
         try {
             const created = await createUnidadMedida({ medida: trimmed, estado: 'activo' });
@@ -143,12 +154,12 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                 timer: 1500,
                 showConfirmButton: false,
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error creating unidad de medida:', err);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudo crear la unidad de medida',
+                text: err.response?.data?.message || 'No se pudo crear la unidad de medida',
             });
         } finally {
             setSavingUnidad(false);
@@ -159,6 +170,17 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
         e.preventDefault();
         const trimmed = nuevoGrupo.trim();
         if (!trimmed) return;
+
+        const duplicado = grupos.find(g => g.grupo?.trim().toLowerCase() === trimmed.toLowerCase());
+        if (duplicado) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Grupo existente',
+                text: `Ya existe un grupo de inventario con el nombre "${trimmed}".`,
+            });
+            return;
+        }
+
         setSavingGrupo(true);
         try {
             const created = await createGrupoInventario({ grupo: trimmed, estado: 'activo' });
@@ -174,12 +196,12 @@ export const InventarioForm = ({ initialData, onSubmit, onCancel }: InventarioFo
                 timer: 1500,
                 showConfirmButton: false,
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error creating grupo de inventario:', err);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudo crear el grupo de inventario',
+                text: err.response?.data?.message || 'No se pudo crear el grupo de inventario',
             });
         } finally {
             setSavingGrupo(false);

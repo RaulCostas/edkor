@@ -125,9 +125,42 @@ const SucursalesList = () => {
     }
   };
   const handleFormSubmit = async (data: Omit<Sucursal, "id">) => {
+    const nombreNuevo = (data.nombre || "").trim();
+    if (!nombreNuevo) {
+      Swal.fire({
+        icon: "warning",
+        title: "Campo obligatorio",
+        text: "El nombre de la sucursal es obligatorio.",
+      });
+      return;
+    }
+
+    const duplicado = sucursales.find(
+      (s) =>
+        s.nombre?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+        (!editingSucursal || String(s.id) !== String(editingSucursal.id))
+    );
+
+    if (duplicado) {
+      if (duplicado.estado === "inactivo") {
+        Swal.fire({
+          icon: "warning",
+          title: "Sucursal existente inactiva",
+          text: `La sucursal "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`,
+        });
+      } else {
+        Swal.fire({
+          icon: "warning",
+          title: "Sucursal duplicada",
+          text: `Ya existe una sucursal con el nombre "${nombreNuevo}".`,
+        });
+      }
+      return;
+    }
+
     try {
       if (editingSucursal) {
-        await updateSucursal(String(editingSucursal.id), data);
+        await updateSucursal(String(editingSucursal.id), { ...data, nombre: nombreNuevo });
         await Swal.fire({
           icon: "success",
           title: "Actualizado",
@@ -136,7 +169,7 @@ const SucursalesList = () => {
           timer: 1500,
         });
       } else {
-        await createSucursal(data);
+        await createSucursal({ ...data, nombre: nombreNuevo });
         await Swal.fire({
           icon: "success",
           title: "Creado",
@@ -148,8 +181,8 @@ const SucursalesList = () => {
       setShowModal(false);
       setEditingSucursal(null);
       fetchSucursales();
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Error", text: "Error al guardar" });
+    } catch (err: any) {
+      Swal.fire({ icon: "error", title: "Error", text: err.response?.data?.message || "Error al guardar" });
       throw err;
     }
   };

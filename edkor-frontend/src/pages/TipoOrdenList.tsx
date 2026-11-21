@@ -145,9 +145,41 @@ const TipoOrdenList = () => {
     };
 
     const handleSave = async (formData: CreateTipoOrdenData) => {
+        const nombreNuevo = (formData.tipo_orden || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre del tipo de orden es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = tiposOrden.find(t =>
+            t.tipo_orden?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingTipoOrden || String(t.id) !== String(editingTipoOrden.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tipo de orden existente inactivo',
+                    text: `El tipo de orden "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarlo desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tipo de orden duplicado',
+                    text: `Ya existe un tipo de orden con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingTipoOrden) {
-                await updateTipoOrden(editingTipoOrden.id, formData);
+                await updateTipoOrden(editingTipoOrden.id, { ...formData, tipo_orden: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -156,7 +188,7 @@ const TipoOrdenList = () => {
                     timer: 1500
                 });
             } else {
-                await createTipoOrden(formData);
+                await createTipoOrden({ ...formData, tipo_orden: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -168,11 +200,11 @@ const TipoOrdenList = () => {
             setShowModal(false);
             setEditingTipoOrden(null);
             fetchTiposOrden();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
         }
     };

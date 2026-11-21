@@ -150,6 +150,12 @@ const MainLayout = () => {
           requiredPermission: "ordenes",
         },
         {
+          path: "/otros-ingresos",
+          label: "Otros Ingresos",
+          icon: DollarSign,
+          requiredPermission: "otros_ingresos",
+        },
+        {
           path: "/utilidad-ordenes",
           label: "Utilidad Neta de O.T.",
           icon: TrendingUp,
@@ -358,7 +364,8 @@ const MainLayout = () => {
   const hasMenuPermission = (requiredPermission?: string) => {
     if (!requiredPermission) return true;
     if (!user?.rol) return true;
-    if (user.rol.nombre?.toLowerCase() === "admin") return true;
+    const roleName = user.rol.nombre?.toLowerCase()?.trim();
+    if (roleName === "admin" || roleName === "administrador") return true;
     return user.rol.permisos?.[requiredPermission] === true;
   };
 
@@ -385,7 +392,7 @@ const MainLayout = () => {
       {/* Mobile Backdrop Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity"
+          className="fixed inset-0 z-[35] bg-black/50 md:hidden transition-opacity"
           onClick={() => setIsMobileOpen(false)}
         />
       )}

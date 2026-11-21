@@ -136,9 +136,41 @@ const TipoVehiculoList = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        const nombreNuevo = (formData.tipo || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El tipo de vehículo es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = tipos.find(t =>
+            t.tipo?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingTipo || String(t.id) !== String(editingTipo.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tipo de vehículo existente inactivo',
+                    text: `El tipo de vehículo "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarlo desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tipo de vehículo duplicado',
+                    text: `Ya existe un tipo de vehículo con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingTipo) {
-                await updateTipoVehiculo(editingTipo.id, formData);
+                await updateTipoVehiculo(editingTipo.id, { ...formData, tipo: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -147,7 +179,7 @@ const TipoVehiculoList = () => {
                     timer: 1500
                 });
             } else {
-                await createTipoVehiculo(formData);
+                await createTipoVehiculo({ ...formData, tipo: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -160,11 +192,11 @@ const TipoVehiculoList = () => {
             setEditingTipo(null);
             setFormData({ tipo: '', estado: 'activo' });
             fetchTiposVehiculos();
-        } catch (error) {
+        } catch (error: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: error.response?.data?.message || 'Error al guardar'
             });
         }
     };

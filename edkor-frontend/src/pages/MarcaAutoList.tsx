@@ -145,9 +145,41 @@ const MarcaAutoList = () => {
     };
 
     const handleSave = async (data: Omit<MarcaAuto, 'id'>) => {
+        const nombreNuevo = (data.marca || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre de la marca es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = marcas.find(m =>
+            m.marca?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingMarca || String(m.id) !== String(editingMarca.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Marca existente inactiva',
+                    text: `La marca "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Marca duplicada',
+                    text: `Ya existe una marca con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingMarca) {
-                await updateMarcaAuto(editingMarca.id, data);
+                await updateMarcaAuto(editingMarca.id, { ...data, marca: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -156,7 +188,7 @@ const MarcaAutoList = () => {
                     timer: 1500
                 });
             } else {
-                await createMarcaAuto(data);
+                await createMarcaAuto({ ...data, marca: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -168,8 +200,8 @@ const MarcaAutoList = () => {
             setShowModal(false);
             setEditingMarca(null);
             fetchMarcas();
-        } catch (error) {
-            Swal.fire('Error', 'Ocurrió un error al guardar', 'error');
+        } catch (error: any) {
+            Swal.fire('Error', error.response?.data?.message || 'Ocurrió un error al guardar', 'error');
         }
     };
 

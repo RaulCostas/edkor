@@ -58,6 +58,7 @@ const Utilidades: React.FC = () => {
 
   const [stats, setStats] = useState<{
     ingresos: StatCategory;
+    otrosIngresos: StatCategory;
     egresosDiarios: StatCategory;
     sueldos: StatCategory; // NEW
     adelantos: StatCategory; // NEW
@@ -119,6 +120,7 @@ const Utilidades: React.FC = () => {
       // Fetch all data and filter client-side (TALLER backend doesn't support params yet on these endpoints)
       const [
         resIngresos,
+        resOtrosIngresos,
         resEgresos,
         resPersonal,
         resProveedores,
@@ -127,6 +129,7 @@ const Utilidades: React.FC = () => {
         resPagosPlanillas,
       ] = await Promise.all([
         api.get("/pago-orden"),
+        api.get("/otros-ingresos"),
         api.get("/egresos"),
         api.get("/pagos-trabajos-asignados"),
         api.get("/pago-pedidos"),
@@ -145,6 +148,11 @@ const Utilidades: React.FC = () => {
       const dataIngresos = resIngresos.data.filter((i: any) =>
         isInRange(i.fecha),
       );
+      const dataOtrosIngresos = (
+        Array.isArray(resOtrosIngresos.data)
+          ? resOtrosIngresos.data
+          : []
+      ).filter((oi: any) => isInRange(oi.fecha));
       const dataEgresos = (
         Array.isArray(resEgresos.data.data)
           ? resEgresos.data.data
@@ -171,6 +179,7 @@ const Utilidades: React.FC = () => {
         items: any[],
         type:
           | "ingreso"
+          | "otro_ingreso"
           | "egreso"
           | "personal"
           | "proveedor"
@@ -211,6 +220,14 @@ const Utilidades: React.FC = () => {
               cliente = item.orden_trabajo?.cliente || "-";
               desc = `Orden #${item.orden_trabajo?.id} - ${cliente}`;
               if (item.observacion) desc += ` (${item.observacion})`;
+              break;
+            case "otro_ingreso": // OtrosIngresos
+              amount = Number(item.monto) || 0;
+              formaPago = item.forma_pago?.forma_pago || "-";
+              cliente = item.cliente || "-";
+              desc = `${item.tipo_ingreso || 'Ingreso'}: ${item.motivo}`;
+              if (item.observacion) desc += ` (${item.observacion})`;
+              if (item.placa) desc += ` [Placa: ${item.placa}]`;
               break;
             case "egreso": // Egresos
               amount = Number(item.monto) || 0;
@@ -285,6 +302,7 @@ const Utilidades: React.FC = () => {
       };
 
       const ingresos = sum(dataIngresos, "ingreso");
+      const otrosIngresosStats = sum(dataOtrosIngresos, "otro_ingreso");
       const egresosDiarios = sum(dataEgresos, "egreso");
 
       // Calculations
@@ -296,7 +314,10 @@ const Utilidades: React.FC = () => {
       // Calculate unified Gastos Fijos stats
       const gastosStats = sum(dataGastos, "gasto");
 
-      const totalIngresos = { bs: ingresos.bs, sus: ingresos.sus };
+      const totalIngresos = {
+        bs: ingresos.bs + otrosIngresosStats.bs,
+        sus: ingresos.sus + otrosIngresosStats.sus,
+      };
       const totalEgresos = {
         bs:
           egresosDiarios.bs +
@@ -316,6 +337,7 @@ const Utilidades: React.FC = () => {
 
       setStats({
         ingresos: { label: "Ingresos por Órdenes", ...ingresos },
+        otrosIngresos: { label: "Otros Ingresos", ...otrosIngresosStats },
         egresosDiarios: { label: "Egresos Diarios", ...egresosDiarios },
         sueldos: { label: "Sueldos", ...sueldosStats },
         adelantos: { label: "Adelantos", ...adelantosStats },
@@ -374,6 +396,7 @@ const Utilidades: React.FC = () => {
     }
     const data = [
       { Concepto: stats.ingresos.label, 'Bolivianos (Bs)': stats.ingresos.bs, 'Dólares ($us)': stats.ingresos.sus },
+      { Concepto: stats.otrosIngresos.label, 'Bolivianos (Bs)': stats.otrosIngresos.bs, 'Dólares ($us)': stats.otrosIngresos.sus },
       { Concepto: 'TOTAL INGRESOS', 'Bolivianos (Bs)': stats.totalIngresos.bs, 'Dólares ($us)': stats.totalIngresos.sus },
       { Concepto: stats.egresosDiarios.label, 'Bolivianos (Bs)': stats.egresosDiarios.bs, 'Dólares ($us)': stats.egresosDiarios.sus },
       { Concepto: stats.pagosPersonal.label, 'Bolivianos (Bs)': stats.pagosPersonal.bs, 'Dólares ($us)': stats.pagosPersonal.sus },
@@ -404,6 +427,7 @@ const Utilidades: React.FC = () => {
         head: [['Concepto Financiero', 'Bolivianos (Bs)', 'Dólares ($us)']],
         body: [
           [stats.ingresos.label, `Bs ${stats.ingresos.bs.toFixed(2)}`, `$us ${stats.ingresos.sus.toFixed(2)}`],
+          [stats.otrosIngresos.label, `Bs ${stats.otrosIngresos.bs.toFixed(2)}`, `$us ${stats.otrosIngresos.sus.toFixed(2)}`],
           [{ content: 'TOTAL INGRESOS', styles: { fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } }, { content: `Bs ${stats.totalIngresos.bs.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } }, { content: `$us ${stats.totalIngresos.sus.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] } }],
           [stats.egresosDiarios.label, `Bs ${stats.egresosDiarios.bs.toFixed(2)}`, `$us ${stats.egresosDiarios.sus.toFixed(2)}`],
           [stats.pagosPersonal.label, `Bs ${stats.pagosPersonal.bs.toFixed(2)}`, `$us ${stats.pagosPersonal.sus.toFixed(2)}`],
@@ -561,7 +585,7 @@ const Utilidades: React.FC = () => {
           </div>
 
           <div className="divide-y divide-gray-100 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
-            {/* INGRESOS */}
+            {/* INGRESOS POR ORDENES */}
             <div className="grid grid-cols-12 py-4 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 items-center transition-colors">
               <div className="col-span-4 font-semibold text-gray-900 dark:text-white">
                 {stats.ingresos.label}
@@ -574,7 +598,7 @@ const Utilidades: React.FC = () => {
                   onClick={() =>
                     handleOpenDetail(stats?.ingresos, "Bolivianos")
                   }
-                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer"
                   title="Ver Detalle"
                 >
                   <Eye size={16} />
@@ -586,7 +610,40 @@ const Utilidades: React.FC = () => {
               <div className="col-span-1 text-center">
                 <button
                   onClick={() => handleOpenDetail(stats?.ingresos, "Dólares")}
-                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                  title="Ver Detalle"
+                >
+                  <Eye size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* OTROS INGRESOS (Debajo de Ingresos por Órdenes) */}
+            <div className="grid grid-cols-12 py-4 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 items-center transition-colors">
+              <div className="col-span-4 font-semibold text-gray-900 dark:text-white">
+                {stats.otrosIngresos.label}
+              </div>
+              <div className="col-span-3 text-right font-medium">
+                {formatMoney(stats.otrosIngresos.bs, "Bs")}
+              </div>
+              <div className="col-span-1 text-center">
+                <button
+                  onClick={() =>
+                    handleOpenDetail(stats?.otrosIngresos, "Bolivianos")
+                  }
+                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                  title="Ver Detalle"
+                >
+                  <Eye size={16} />
+                </button>
+              </div>
+              <div className="col-span-3 text-right font-medium">
+                {formatMoney(stats.otrosIngresos.sus, "Sus")}
+              </div>
+              <div className="col-span-1 text-center">
+                <button
+                  onClick={() => handleOpenDetail(stats?.otrosIngresos, "Dólares")}
+                  className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer"
                   title="Ver Detalle"
                 >
                   <Eye size={16} />

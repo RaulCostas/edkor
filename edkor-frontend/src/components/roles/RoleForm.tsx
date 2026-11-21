@@ -8,6 +8,7 @@ interface RoleFormProps {
 export const PERMISOS_MODULOS = [
   { module: "recepcion", label: "Operaciones Taller: Hoja de Recepción" },
   { module: "ordenes", label: "Operaciones Taller: Órdenes de Trabajo" },
+  { module: "otros_ingresos", label: "Operaciones Taller: Otros Ingresos" },
   { module: "utilidad_ordenes", label: "Operaciones Taller: Utilidad Neta Mensual de O.T." },
   { module: "cotizaciones", label: "Cotizaciones" },
   { module: "cobros_registro", label: "Cobros: Registro de Pagos" },

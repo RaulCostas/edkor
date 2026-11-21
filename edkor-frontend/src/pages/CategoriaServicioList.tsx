@@ -135,9 +135,41 @@ const CategoriaServicioList = () => {
     };
 
     const handleSave = async (categoriaData: Omit<CategoriaServicio, 'id'>) => {
+        const nombreNuevo = (categoriaData.categoria_servicio || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre de la categoría es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = categorias.find(c =>
+            c.categoria_servicio?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingCategoria || String(c.id) !== String(editingCategoria.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Categoría existente inactiva',
+                    text: `La categoría "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Categoría duplicada',
+                    text: `Ya existe una categoría con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingCategoria) {
-                await updateCategoriaServicio(editingCategoria.id, categoriaData);
+                await updateCategoriaServicio(editingCategoria.id, { ...categoriaData, categoria_servicio: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -146,7 +178,7 @@ const CategoriaServicioList = () => {
                     timer: 1500
                 });
             } else {
-                await createCategoriaServicio(categoriaData);
+                await createCategoriaServicio({ ...categoriaData, categoria_servicio: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -158,11 +190,11 @@ const CategoriaServicioList = () => {
             setShowModal(false);
             setEditingCategoria(null);
             fetchCategorias();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
             throw err;
         }

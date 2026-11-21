@@ -137,9 +137,41 @@ const GrupoInventarioList = () => {
     };
 
     const handleSave = async (grupoInventarioData: CreateGrupoInventarioData) => {
+        const nombreNuevo = (grupoInventarioData.grupo || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre del grupo es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = gruposInventario.find(gi =>
+            gi.grupo?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingGrupoInventario || String(gi.id) !== String(editingGrupoInventario.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Grupo existente inactivo',
+                    text: `El grupo de inventario "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarlo desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Grupo duplicado',
+                    text: `Ya existe un grupo de inventario con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingGrupoInventario) {
-                await updateGrupoInventario(editingGrupoInventario.id, grupoInventarioData);
+                await updateGrupoInventario(editingGrupoInventario.id, { ...grupoInventarioData, grupo: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -148,7 +180,7 @@ const GrupoInventarioList = () => {
                     timer: 1500
                 });
             } else {
-                await createGrupoInventario(grupoInventarioData);
+                await createGrupoInventario({ ...grupoInventarioData, grupo: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -160,11 +192,11 @@ const GrupoInventarioList = () => {
             setShowModal(false);
             setEditingGrupoInventario(null);
             fetchGruposInventario();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
             throw err;
         }

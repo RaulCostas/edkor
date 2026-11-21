@@ -48,6 +48,7 @@ import { SucursalesModule } from './sucursales/sucursales.module';
 import { HojaRecepcionModule } from './hoja-recepcion/hoja-recepcion.module';
 import { RolesModule } from './roles/roles.module';
 import { TipoOrdenModule } from './tipo-orden/tipo-orden.module';
+import { OtrosIngresosModule } from './otros-ingresos/otros-ingresos.module';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
@@ -108,6 +109,7 @@ import { TipoOrdenModule } from './tipo-orden/tipo-orden.module';
     HojaRecepcionModule,
     RolesModule,
     TipoOrdenModule,
+    OtrosIngresosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

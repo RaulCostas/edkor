@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTipoVehiculoDto } from './dto/create-tipo-vehiculo.dto';
@@ -13,7 +13,27 @@ export class TiposVehiculosService {
     ) { }
 
     async create(createTipoVehiculoDto: CreateTipoVehiculoDto): Promise<TipoVehiculo> {
-        const tipo = this.tiposVehiculosRepository.create(createTipoVehiculoDto);
+        const nombre = createTipoVehiculoDto.tipo?.trim();
+        if (!nombre) {
+            throw new BadRequestException('El tipo de vehículo es obligatorio.');
+        }
+
+        const existing = await this.tiposVehiculosRepository
+            .createQueryBuilder('t')
+            .where('LOWER(TRIM(t.tipo)) = LOWER(:nombre)', { nombre })
+            .getOne();
+
+        if (existing) {
+            if (existing.estado === 'inactivo') {
+                throw new BadRequestException(`El tipo de vehículo "${nombre}" ya existe en estado inactivo. Puede reactivarlo desde el listado.`);
+            }
+            throw new BadRequestException(`Ya existe un tipo de vehículo con el nombre "${nombre}".`);
+        }
+
+        const tipo = this.tiposVehiculosRepository.create({
+            ...createTipoVehiculoDto,
+            tipo: nombre,
+        });
         return await this.tiposVehiculosRepository.save(tipo);
     }
 
@@ -28,6 +48,24 @@ export class TiposVehiculosService {
     }
 
     async update(id: number, updateTipoVehiculoDto: UpdateTipoVehiculoDto): Promise<TipoVehiculo | null> {
+        if (updateTipoVehiculoDto.tipo) {
+            const nombre = updateTipoVehiculoDto.tipo.trim();
+            if (!nombre) {
+                throw new BadRequestException('El tipo de vehículo no puede estar vacío.');
+            }
+
+            const existing = await this.tiposVehiculosRepository
+                .createQueryBuilder('t')
+                .where('LOWER(TRIM(t.tipo)) = LOWER(:nombre)', { nombre })
+                .andWhere('t.id != :id', { id })
+                .getOne();
+
+            if (existing) {
+                throw new BadRequestException(`Ya existe otro tipo de vehículo con el nombre "${nombre}".`);
+            }
+            updateTipoVehiculoDto.tipo = nombre;
+        }
+
         await this.tiposVehiculosRepository.update(id, updateTipoVehiculoDto);
         return this.findOne(id);
     }

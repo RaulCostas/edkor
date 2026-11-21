@@ -4,11 +4,12 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import CalendarWidget from '../components/CalendarWidget';
 import ManualModal, { type ManualSection } from './ManualModal';
-import { ClipboardList, Wallet, Users, ShoppingBag, Banknote, Landmark, Search, RefreshCw, Printer } from 'lucide-react';
+import { ClipboardList, Wallet, Users, ShoppingBag, Banknote, Landmark, Search, RefreshCw, Printer, Coins } from 'lucide-react';
 import { exportStandardPDF } from '../utils/pdfExportHelper';
 import { StandardExportToolbar } from '../components/common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../components/common/StandardPrintHeader';
 import { getLocalDateString } from '../utils/dateUtils';
+import type { OtroIngreso } from '../types/otroIngreso';
 
 // Interfaces for TALLER
 interface PagoOrden {
@@ -108,7 +109,7 @@ const HojaDiaria: React.FC = () => {
         },
         {
             title: 'Pestañas',
-            content: 'Navegue entre Ingresos (Pagos de Órdenes), Egresos Diarios, Pagos a Personal, Pagos a Proveedores y Gastos Fijos.'
+            content: 'Navegue entre Ingresos (Pagos de Órdenes), Otros Ingresos (Ventas directas/Auxilios), Egresos Diarios, Pagos a Personal, Pagos a Proveedores y Gastos Fijos.'
         },
         {
             title: 'Búsqueda',
@@ -130,6 +131,7 @@ const HojaDiaria: React.FC = () => {
 
     // Data States
     const [ingresos, setIngresos] = useState<PagoOrden[]>([]);
+    const [otrosIngresos, setOtrosIngresos] = useState<OtroIngreso[]>([]);
     const [egresos, setEgresos] = useState<Egreso[]>([]);
     const [pagosPersonal, setPagosPersonal] = useState<PagoPersonal[]>([]);
     const [anticiposList, setAnticiposList] = useState<Anticipo[]>([]);
@@ -143,6 +145,7 @@ const HojaDiaria: React.FC = () => {
 
     const tabs = [
         { label: "Ingresos (Órdenes)", icon: <Wallet size={16} /> },
+        { label: "Otros Ingresos", icon: <Coins size={16} /> },
         { label: "Egresos Diarios", icon: <Banknote size={16} /> },
         { label: "Pagos a Personal", icon: <Users size={16} /> },
         { label: "Pagos a Proveedores", icon: <ShoppingBag size={16} /> },
@@ -179,6 +182,7 @@ const HojaDiaria: React.FC = () => {
 
             const [
                 resIngresos,
+                resOtrosIngresos,
                 resEgresos,
                 resPersonal,
                 resProveedores,
@@ -187,6 +191,7 @@ const HojaDiaria: React.FC = () => {
                 resPlanillas
             ] = await Promise.all([
                 api.get('/pago-orden'),
+                api.get('/otros-ingresos'),
                 api.get('/egresos'),
                 api.get('/pagos-trabajos-asignados'),
                 api.get('/pago-pedidos'),
@@ -195,8 +200,12 @@ const HojaDiaria: React.FC = () => {
                 api.get('/pagos-planillas')
             ]);
 
-            // Filter Ingresos
+            // Filter Ingresos (Órdenes)
             setIngresos(resIngresos.data.filter((i: PagoOrden) => isInRange(i.fecha)));
+
+            // Filter Otros Ingresos
+            const otrosIngresosData = Array.isArray(resOtrosIngresos.data) ? resOtrosIngresos.data : [];
+            setOtrosIngresos(otrosIngresosData.filter((oi: OtroIngreso) => isInRange(oi.fecha)));
 
             // Filter Egresos
             const egresosData = Array.isArray(resEgresos.data.data) ? resEgresos.data.data : (Array.isArray(resEgresos.data) ? resEgresos.data : []);
@@ -276,14 +285,14 @@ const HojaDiaria: React.FC = () => {
     };
 
 
-    const calculateSummary = (items: any[], type: 'ingreso' | 'egreso' | 'personal' | 'proveedor' | 'gasto' | 'anticipo' | 'planilla'): Summary => {
+    const calculateSummary = (items: any[], type: 'ingreso' | 'otro_ingreso' | 'egreso' | 'personal' | 'proveedor' | 'gasto' | 'anticipo' | 'planilla'): Summary => {
         return items.reduce((acc, item) => {
             let currency = item.moneda || 'Bolivianos';
             let amount = 0;
             let method = '';
 
-            if (type === 'ingreso') {
-                amount = Number(item.monto);
+            if (type === 'ingreso' || type === 'otro_ingreso') {
+                amount = Number(item.monto || 0);
                 method = item.forma_pago?.forma_pago || 'Desconocido';
             } else if (type === 'egreso') {
                 amount = Number(item.monto);
@@ -400,6 +409,33 @@ const HojaDiaria: React.FC = () => {
             ${generateSummaryHTML(summary)}
         `;
         printWindow('Reporte de Ingresos', table);
+    };
+
+    const handlePrintOtrosIngresos = () => {
+        const summary = calculateSummary(otrosIngresos, 'otro_ingreso');
+        const rows = otrosIngresos.map(oi => `
+            <tr>
+                <td>${formatDateDisplay(oi.fecha)}</td>
+                <td>${String(oi.nro || oi.id).padStart(6, '0')}</td>
+                <td>${oi.tipo_ingreso || 'Venta'}</td>
+                <td>${oi.motivo}</td>
+                <td>${formatMoney(Number(oi.monto || 0), oi.moneda)}</td>
+                <td>${oi.forma_pago?.forma_pago || 'N/A'}</td>
+                <td>${oi.cliente || '-'}${oi.placa ? ` (${oi.placa})` : ''}</td>
+                <td>${oi.observacion || '-'}</td>
+            </tr>
+        `).join('');
+
+        const table = `
+            <table>
+                <thead>
+                    <tr><th>Fecha</th><th>N°</th><th>Tipo</th><th>Motivo</th><th>Monto</th><th>Forma Pago</th><th>Cliente/Placa</th><th>Obs</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${generateSummaryHTML(summary)}
+        `;
+        printWindow('Reporte de Otros Ingresos', table);
     };
 
     const handlePrintEgresos = () => {
@@ -543,8 +579,14 @@ const HojaDiaria: React.FC = () => {
 
 
     // Calculate Grand Totals for Summary
-    const totalIngresosBs = ingresos.filter(i => i.moneda === 'Bolivianos').reduce((acc, curr) => acc + Number(curr.monto), 0);
-    const totalIngresosSus = ingresos.filter(i => i.moneda === 'Dólares').reduce((acc, curr) => acc + Number(curr.monto), 0);
+    const totalIngresosOrdenesBs = ingresos.filter(i => i.moneda === 'Bolivianos').reduce((acc, curr) => acc + Number(curr.monto), 0);
+    const totalIngresosOrdenesSus = ingresos.filter(i => i.moneda === 'Dólares').reduce((acc, curr) => acc + Number(curr.monto), 0);
+
+    const totalOtrosIngresosBs = otrosIngresos.filter(i => (i.moneda || 'Bolivianos') === 'Bolivianos').reduce((acc, curr) => acc + Number(curr.monto || 0), 0);
+    const totalOtrosIngresosSus = otrosIngresos.filter(i => i.moneda === 'Dólares').reduce((acc, curr) => acc + Number(curr.monto || 0), 0);
+
+    const totalIngresosBs = totalIngresosOrdenesBs + totalOtrosIngresosBs;
+    const totalIngresosSus = totalIngresosOrdenesSus + totalOtrosIngresosSus;
 
     const calcTotalEgresos = (items: any[], montoKey: string = 'monto') => {
         return {
@@ -571,7 +613,7 @@ const HojaDiaria: React.FC = () => {
     const exportGlobalExcel = () => {
         const wb = XLSX.utils.book_new();
 
-        // Sheet 1: Ingresos
+        // Sheet 1: Ingresos Órdenes
         const wsIngresos = XLSX.utils.json_to_sheet(ingresos.map(i => ({
             Fecha: formatDateDisplay(i.fecha),
             Cliente: i.orden_trabajo?.cliente || '-',
@@ -581,9 +623,25 @@ const HojaDiaria: React.FC = () => {
             'Forma Pago': i.forma_pago?.forma_pago || '-',
             Observación: i.observacion || '-'
         })));
-        XLSX.utils.book_append_sheet(wb, wsIngresos, "Ingresos");
+        XLSX.utils.book_append_sheet(wb, wsIngresos, "Ingresos Órdenes");
 
-        // Sheet 2: Egresos
+        // Sheet 2: Otros Ingresos
+        const wsOtrosIngresos = XLSX.utils.json_to_sheet(otrosIngresos.map(oi => ({
+            Fecha: formatDateDisplay(oi.fecha),
+            'N° Ingreso': String(oi.nro || oi.id).padStart(6, '0'),
+            Tipo: oi.tipo_ingreso || 'Venta',
+            Motivo: oi.motivo,
+            Monto: Number(oi.monto || 0).toFixed(2),
+            Moneda: oi.moneda || 'Bolivianos',
+            'Forma Pago': oi.forma_pago?.forma_pago || '-',
+            Cliente: oi.cliente || '-',
+            Placa: oi.placa || '-',
+            Asesor: oi.asesor ? `${oi.asesor.nombre} ${oi.asesor.paterno || ''}` : '-',
+            Observación: oi.observacion || '-'
+        })));
+        XLSX.utils.book_append_sheet(wb, wsOtrosIngresos, "Otros Ingresos");
+
+        // Sheet 3: Egresos
         const wsEgresos = XLSX.utils.json_to_sheet(egresos.map(e => ({
             Fecha: formatDateDisplay(e.fecha),
             Detalle: e.detalle,
@@ -593,9 +651,11 @@ const HojaDiaria: React.FC = () => {
         })));
         XLSX.utils.book_append_sheet(wb, wsEgresos, "Egresos");
 
-        // Sheet 3: Resumen
+        // Sheet 4: Resumen
         const wsResumen = XLSX.utils.json_to_sheet([
-            { Concepto: 'Total Ingresos (Bs)', Valor: totalIngresosBs.toFixed(2) },
+            { Concepto: 'Ingresos por Órdenes (Bs)', Valor: totalIngresosOrdenesBs.toFixed(2) },
+            { Concepto: 'Otros Ingresos (Bs)', Valor: totalOtrosIngresosBs.toFixed(2) },
+            { Concepto: 'Total Ingresos Global (Bs)', Valor: totalIngresosBs.toFixed(2) },
             { Concepto: 'Total Egresos Global (Bs)', Valor: totalEgresosGlobalBs.toFixed(2) },
             { Concepto: 'Saldo Neto (Bs)', Valor: saldoNetoBs.toFixed(2) }
         ]);
@@ -610,19 +670,27 @@ const HojaDiaria: React.FC = () => {
             title: 'Hoja Diaria - Balance de Movimientos',
             subtitle: 'EDKOR MOTORS - Reporte Financiero de Ingresos y Egresos',
             filtersText: dateText,
-            totalRecords: ingresos.length + egresos.length,
+            totalRecords: ingresos.length + otrosIngresos.length + egresos.length,
             totalRecordsLabel: 'Movimientos Totales',
             filename: `Hoja_Diaria_${searchMode === 'single' ? selectedDate : `${rangeStart}_a_${rangeEnd}`}.pdf`,
             tableOptions: {
                 head: [['Tipo', 'Fecha', 'Concepto / Cliente', 'Monto (Bs)', 'Forma Pago', 'Detalle']],
                 body: [
                     ...ingresos.map(i => [
-                        'INGRESO',
+                        'INGRESO OT',
                         formatDateDisplay(i.fecha),
                         i.orden_trabajo?.cliente || `OT-${i.orden_trabajo?.id || ''}`,
                         Number(i.monto || 0).toFixed(2),
                         i.forma_pago?.forma_pago || '-',
                         i.observacion || 'Cobro OT'
+                    ]),
+                    ...otrosIngresos.map(oi => [
+                        'OTRO INGRESO',
+                        formatDateDisplay(oi.fecha),
+                        oi.motivo,
+                        Number(oi.monto || 0).toFixed(2),
+                        oi.forma_pago?.forma_pago || '-',
+                        `${oi.tipo_ingreso || 'Venta'}${oi.cliente ? ` - ${oi.cliente}` : ''}`
                     ]),
                     ...egresos.map(e => [
                         'EGRESO',
@@ -634,7 +702,7 @@ const HojaDiaria: React.FC = () => {
                     ])
                 ],
                 columnStyles: {
-                    0: { halign: 'center', cellWidth: 20, fontStyle: 'bold' },
+                    0: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
                     1: { halign: 'center', cellWidth: 22 },
                     2: { cellWidth: 50, fontStyle: 'bold' },
                     3: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
@@ -814,7 +882,73 @@ const HojaDiaria: React.FC = () => {
                     </div>
                 )}
 
+                {/* OTROS INGRESOS TAB */}
                 {!loading && activeTab === 1 && (
+                    <div className="p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Otros Ingresos (Ventas Directas / Auxilios)</h2>
+                            <button onClick={handlePrintOtrosIngresos} className="bg-[#9b59b6] hover:bg-[#8e44ad] text-white px-3.5 py-2 rounded-lg font-medium shadow-md transform hover:-translate-y-0.5 transition-all flex items-center gap-2 text-sm">
+                                <Printer size={16} /> Imprimir
+                            </button>
+                        </div>
+                        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <tr>
+                                        <th className="p-4 w-12 text-center">#</th>
+                                        <th className="p-4">Fecha</th>
+                                        <th className="p-4 text-center">N° Comprobante</th>
+                                        <th className="p-4">Tipo</th>
+                                        <th className="p-4">Motivo / Descripción</th>
+                                        <th className="p-4 text-right">Monto</th>
+                                        <th className="p-4">F. Pago</th>
+                                        <th className="p-4">Cliente / Placa</th>
+                                        <th className="p-4">Asesor</th>
+                                        <th className="p-4">Obs</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {otrosIngresos.length === 0 ? (
+                                        <tr><td colSpan={10} className="p-8 text-center italic text-gray-500 dark:text-gray-400">No hay otros ingresos registrados</td></tr>
+                                    ) : (
+                                        otrosIngresos.map((item, idx) => (
+                                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <td className="p-4 text-center font-mono text-xs text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                                                <td className="p-4 text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDateDisplay(item.fecha)}</td>
+                                                <td className="p-4 text-center font-mono font-bold text-blue-600 dark:text-blue-400">{String(item.nro || item.id).padStart(6, '0')}</td>
+                                                <td className="p-4 text-xs">
+                                                    <span className="px-2 py-0.5 rounded font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                        {item.tipo_ingreso || 'Venta'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-semibold text-gray-800 dark:text-white">
+                                                    <div>{item.motivo}</div>
+                                                    {item.inventario && (
+                                                        <div className="text-xs text-gray-400 font-normal mt-0.5">
+                                                            {item.cantidad || 1} x {item.inventario.descripcion}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(Number(item.monto), item.moneda)}</td>
+                                                <td className="p-4 text-gray-600 dark:text-gray-300">{item.forma_pago?.forma_pago || 'Efectivo'}</td>
+                                                <td className="p-4 text-gray-700 dark:text-gray-300">
+                                                    <div>{item.cliente || '-'}</div>
+                                                    {item.placa && <span className="text-xs font-mono font-bold text-amber-600">{item.placa}</span>}
+                                                </td>
+                                                <td className="p-4 text-xs text-gray-500 dark:text-gray-400">
+                                                    {item.asesor ? `${item.asesor.nombre} ${item.asesor.paterno || ''}`.trim() : '-'}
+                                                </td>
+                                                <td className="p-4 text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">{item.observacion || '-'}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {!loading && activeTab === 2 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Egresos Diarios</h2>
@@ -853,7 +987,7 @@ const HojaDiaria: React.FC = () => {
                     </div>
                 )}
 
-                {!loading && activeTab === 2 && (
+                {!loading && activeTab === 3 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Pagos a Personal</h2>
@@ -893,7 +1027,7 @@ const HojaDiaria: React.FC = () => {
                     </div>
                 )}
 
-                {!loading && activeTab === 3 && (
+                {!loading && activeTab === 4 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Pagos a Proveedores</h2>
@@ -934,7 +1068,7 @@ const HojaDiaria: React.FC = () => {
                     </div>
                 )}
 
-                {!loading && activeTab === 4 && (
+                {!loading && activeTab === 5 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Pagos Gastos Fijos</h2>
@@ -975,7 +1109,7 @@ const HojaDiaria: React.FC = () => {
                     </div>
                 )}
                 {/* SUELDOS TAB */}
-                {!loading && activeTab === 5 && (
+                {!loading && activeTab === 6 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Sueldos</h2>
@@ -1012,7 +1146,7 @@ const HojaDiaria: React.FC = () => {
                 )}
 
                 {/* ADELANTOS TAB */}
-                {!loading && activeTab === 6 && (
+                {!loading && activeTab === 7 && (
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Adelantos</h2>

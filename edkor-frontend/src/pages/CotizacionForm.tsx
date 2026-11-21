@@ -168,6 +168,17 @@ const CotizacionForm = () => {
         e.preventDefault();
         const clean = nuevoTipoOrdenNombre.trim();
         if (!clean) return;
+
+        const duplicado = tiposOrden.find(t => t.tipo_orden?.trim().toLowerCase() === clean.toLowerCase());
+        if (duplicado) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Tipo de Orden existente',
+                text: `Ya existe un tipo de orden con el nombre "${clean}".`,
+            });
+            return;
+        }
+
         try {
             setSavingTipoOrden(true);
             const created = await createTipoOrden({ tipo_orden: clean, estado: 'activo' });
@@ -183,12 +194,12 @@ const CotizacionForm = () => {
                 timer: 1500,
                 showConfirmButton: false
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creando Tipo de Orden:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudo registrar el Tipo de Orden'
+                text: error?.response?.data?.message || 'No se pudo registrar el Tipo de Orden'
             });
         } finally {
             setSavingTipoOrden(false);
@@ -199,6 +210,17 @@ const CotizacionForm = () => {
         e.preventDefault();
         const clean = nuevaMarcaNombre.trim();
         if (!clean) return;
+
+        const duplicado = marcas.find(m => m.marca?.trim().toLowerCase() === clean.toLowerCase());
+        if (duplicado) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Marca existente',
+                text: `Ya existe una marca con el nombre "${clean}".`,
+            });
+            return;
+        }
+
         try {
             setSavingMarca(true);
             const created = await createMarcaAuto({ marca: clean, estado: 'activo' });
@@ -214,12 +236,12 @@ const CotizacionForm = () => {
                 timer: 1500,
                 showConfirmButton: false
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creando Marca de Auto:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudo registrar la Marca'
+                text: error?.response?.data?.message || 'No se pudo registrar la Marca'
             });
         } finally {
             setSavingMarca(false);

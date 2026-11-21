@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { MarcaAuto } from './entities/marca-auto.entity';
@@ -13,7 +13,27 @@ export class MarcaAutoService {
     ) { }
 
     async create(createMarcaAutoDto: CreateMarcaAutoDto): Promise<MarcaAuto> {
-        const marca = this.marcaAutoRepository.create(createMarcaAutoDto);
+        const nombre = createMarcaAutoDto.marca?.trim();
+        if (!nombre) {
+            throw new BadRequestException('El nombre de la marca es obligatorio.');
+        }
+
+        const existing = await this.marcaAutoRepository
+            .createQueryBuilder('m')
+            .where('LOWER(TRIM(m.marca)) = LOWER(:nombre)', { nombre })
+            .getOne();
+
+        if (existing) {
+            if (existing.estado === 'inactivo') {
+                throw new BadRequestException(`La marca "${nombre}" ya existe en estado inactivo. Puede reactivarla desde el listado.`);
+            }
+            throw new BadRequestException(`Ya existe una marca con el nombre "${nombre}".`);
+        }
+
+        const marca = this.marcaAutoRepository.create({
+            ...createMarcaAutoDto,
+            marca: nombre,
+        });
         return await this.marcaAutoRepository.save(marca);
     }
 
@@ -50,6 +70,25 @@ export class MarcaAutoService {
 
     async update(id: number, updateMarcaAutoDto: UpdateMarcaAutoDto): Promise<MarcaAuto> {
         const marca = await this.findOne(id);
+
+        if (updateMarcaAutoDto.marca) {
+            const nombre = updateMarcaAutoDto.marca.trim();
+            if (!nombre) {
+                throw new BadRequestException('El nombre de la marca no puede estar vacío.');
+            }
+
+            const existing = await this.marcaAutoRepository
+                .createQueryBuilder('m')
+                .where('LOWER(TRIM(m.marca)) = LOWER(:nombre)', { nombre })
+                .andWhere('m.id != :id', { id })
+                .getOne();
+
+            if (existing) {
+                throw new BadRequestException(`Ya existe otra marca con el nombre "${nombre}".`);
+            }
+            updateMarcaAutoDto.marca = nombre;
+        }
+
         Object.assign(marca, updateMarcaAutoDto);
         return await this.marcaAutoRepository.save(marca);
     }

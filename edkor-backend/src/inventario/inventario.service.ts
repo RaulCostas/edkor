@@ -319,6 +319,117 @@ export class InventarioService implements OnModuleInit {
     }
 
     /**
+     * Descuenta stock directamente para ventas de insumos/aditivos en Otros Ingresos
+     */
+    async descontarStockDirecto(params: {
+        idinventario: number;
+        cantidad: number;
+        idusuario?: number | null;
+        motivo?: string;
+        precio_venta?: number;
+    }): Promise<void> {
+        const inventario = await this.inventarioRepository.findOneBy({ id: params.idinventario });
+        if (!inventario) throw new NotFoundException(`Producto de inventario #${params.idinventario} no encontrado`);
+
+        const cantRequerida = Number(params.cantidad);
+        if (cantRequerida <= 0) return;
+
+        const lotes = await this.loteRepository.find({
+            where: {
+                idinventario: params.idinventario,
+                estado: 'activo',
+            },
+            order: {
+                fecha_ingreso: 'ASC',
+                id: 'ASC',
+            },
+        });
+
+        let restante = cantRequerida;
+
+        for (const lote of lotes) {
+            if (restante <= 0.0001) break;
+            const disponible = Number(lote.cantidad_disponible || 0);
+            if (disponible <= 0) continue;
+
+            const aDescontar = Math.min(disponible, restante);
+            lote.cantidad_disponible = Math.max(0, Number((disponible - aDescontar).toFixed(4)));
+
+            if (lote.cantidad_disponible <= 0.0001) {
+                lote.estado = 'agotado';
+            }
+            await this.loteRepository.save(lote);
+
+            await this.movimientoRepository.save(
+                this.movimientoRepository.create({
+                    idinventario: params.idinventario,
+                    idlote: lote.id,
+                    tipo_movimiento: 'SALIDA_VENTA_DIRECTA',
+                    cantidad: aDescontar,
+                    costo_unitario: Number(lote.costo_unitario || 0),
+                    precio_venta_unitario: Number(params.precio_venta ?? inventario.precio_venta ?? 0),
+                    observaciones: params.motivo || `Venta directa descontada del Lote #${lote.id} (${lote.nro_lote || 'S/N'})`,
+                    idusuario: params.idusuario,
+                })
+            );
+
+            restante -= aDescontar;
+        }
+
+        if (restante > 0.0001) {
+            await this.movimientoRepository.save(
+                this.movimientoRepository.create({
+                    idinventario: params.idinventario,
+                    idlote: null,
+                    tipo_movimiento: 'SALIDA_VENTA_DIRECTA',
+                    cantidad: restante,
+                    costo_unitario: Number(inventario.precio_compra || 0),
+                    precio_venta_unitario: Number(params.precio_venta ?? inventario.precio_venta ?? 0),
+                    observaciones: params.motivo ? `${params.motivo} (excedente sin lote)` : `Venta directa excedente sin lote activo`,
+                    idusuario: params.idusuario,
+                })
+            );
+        }
+
+        inventario.salidas = Number(inventario.salidas || 0) + cantRequerida;
+        inventario.cantidad_existente = Math.max(0, Number(inventario.stock_inicial || 0) + Number(inventario.entradas || 0) - Number(inventario.salidas));
+        await this.inventarioRepository.save(inventario);
+    }
+
+    /**
+     * Restituye stock en caso de anulación o eliminación de una venta directa
+     */
+    async restituirStockDirecto(params: {
+        idinventario: number;
+        cantidad: number;
+        idusuario?: number | null;
+        motivo?: string;
+    }): Promise<void> {
+        const inventario = await this.inventarioRepository.findOneBy({ id: params.idinventario });
+        if (!inventario) return;
+
+        const cantARestituir = Number(params.cantidad);
+        if (cantARestituir <= 0) return;
+
+        await this.movimientoRepository.save(
+            this.movimientoRepository.create({
+                idinventario: params.idinventario,
+                idlote: null,
+                tipo_movimiento: 'AJUSTE_POSITIVO',
+                cantidad: cantARestituir,
+                costo_unitario: Number(inventario.precio_compra || 0),
+                precio_venta_unitario: Number(inventario.precio_venta || 0),
+                observaciones: params.motivo || `Restitución de stock por anulación/eliminación de venta directa`,
+                idusuario: params.idusuario,
+            })
+        );
+
+        inventario.salidas = Math.max(0, Number(inventario.salidas || 0) - cantARestituir);
+        inventario.cantidad_existente = Math.max(0, Number(inventario.stock_inicial || 0) + Number(inventario.entradas || 0) - Number(inventario.salidas));
+        await this.inventarioRepository.save(inventario);
+    }
+
+    /**
      * HELPER: Restituye stock a los lotes indicados, registra DEVOLUCION_ORDEN en Kardex,
      * descuenta/limpia las SALIDA_ORDEN correspondientes y recalcula acumuladores de inventario.
      */

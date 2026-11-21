@@ -137,9 +137,41 @@ const UnidadMedidaList = () => {
     };
 
     const handleSave = async (unidadMedidaData: CreateUnidadMedidaData) => {
+        const nombreNuevo = (unidadMedidaData.medida || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre de la unidad de medida es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = unidadesMedida.find(u =>
+            u.medida?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingUnidadMedida || String(u.id) !== String(editingUnidadMedida.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Unidad de medida existente inactiva',
+                    text: `La unidad de medida "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Unidad de medida duplicada',
+                    text: `Ya existe una unidad de medida con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingUnidadMedida) {
-                await updateUnidadMedida(editingUnidadMedida.id, unidadMedidaData);
+                await updateUnidadMedida(editingUnidadMedida.id, { ...unidadMedidaData, medida: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -148,7 +180,7 @@ const UnidadMedidaList = () => {
                     timer: 1500
                 });
             } else {
-                await createUnidadMedida(unidadMedidaData);
+                await createUnidadMedida({ ...unidadMedidaData, medida: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -160,11 +192,11 @@ const UnidadMedidaList = () => {
             setShowModal(false);
             setEditingUnidadMedida(null);
             fetchUnidadesMedida();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
             throw err;
         }

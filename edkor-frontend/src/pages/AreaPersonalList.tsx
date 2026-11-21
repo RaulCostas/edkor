@@ -145,9 +145,41 @@ const AreaPersonalList = () => {
     };
 
     const handleSave = async (formData: CreateAreaPersonalData) => {
+        const nombreNuevo = (formData.area || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre del área es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = areas.find(a =>
+            a.area?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingArea || String(a.id) !== String(editingArea.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Área existente inactiva',
+                    text: `El área "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Área duplicada',
+                    text: `Ya existe un área con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingArea) {
-                await updateAreaPersonal(editingArea.id, formData);
+                await updateAreaPersonal(editingArea.id, { ...formData, area: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -156,7 +188,7 @@ const AreaPersonalList = () => {
                     timer: 1500
                 });
             } else {
-                await createAreaPersonal(formData);
+                await createAreaPersonal({ ...formData, area: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creada',
@@ -168,11 +200,11 @@ const AreaPersonalList = () => {
             setShowModal(false);
             setEditingArea(null);
             fetchAreas();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
         }
     };

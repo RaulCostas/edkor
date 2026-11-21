@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTipoOrdenDto } from './dto/create-tipo-orden.dto';
@@ -12,8 +12,28 @@ export class TipoOrdenService {
         private readonly tipoOrdenRepository: Repository<TipoOrden>,
     ) { }
 
-    create(createTipoOrdenDto: CreateTipoOrdenDto) {
-        const tipoOrden = this.tipoOrdenRepository.create(createTipoOrdenDto);
+    async create(createTipoOrdenDto: CreateTipoOrdenDto) {
+        const nombre = createTipoOrdenDto.tipo_orden?.trim();
+        if (!nombre) {
+            throw new BadRequestException('El nombre del tipo de orden es obligatorio.');
+        }
+
+        const existing = await this.tipoOrdenRepository
+            .createQueryBuilder('t')
+            .where('LOWER(TRIM(t.tipo_orden)) = LOWER(:nombre)', { nombre })
+            .getOne();
+
+        if (existing) {
+            if (existing.estado === 'inactivo') {
+                throw new BadRequestException(`El tipo de orden "${nombre}" ya existe en estado inactivo. Puede reactivarlo desde el listado.`);
+            }
+            throw new BadRequestException(`Ya existe un tipo de orden con el nombre "${nombre}".`);
+        }
+
+        const tipoOrden = this.tipoOrdenRepository.create({
+            ...createTipoOrdenDto,
+            tipo_orden: nombre,
+        });
         return this.tipoOrdenRepository.save(tipoOrden);
     }
 
@@ -38,6 +58,24 @@ export class TipoOrdenService {
     }
 
     async update(id: string, updateTipoOrdenDto: UpdateTipoOrdenDto) {
+        if (updateTipoOrdenDto.tipo_orden) {
+            const nombre = updateTipoOrdenDto.tipo_orden.trim();
+            if (!nombre) {
+                throw new BadRequestException('El nombre del tipo de orden no puede estar vacío.');
+            }
+
+            const existing = await this.tipoOrdenRepository
+                .createQueryBuilder('t')
+                .where('LOWER(TRIM(t.tipo_orden)) = LOWER(:nombre)', { nombre })
+                .andWhere('t.id != :id', { id: +id })
+                .getOne();
+
+            if (existing) {
+                throw new BadRequestException(`Ya existe otro tipo de orden con el nombre "${nombre}".`);
+            }
+            updateTipoOrdenDto.tipo_orden = nombre;
+        }
+
         const tipoOrden = await this.tipoOrdenRepository.preload({
             id: +id,
             ...updateTipoOrdenDto,

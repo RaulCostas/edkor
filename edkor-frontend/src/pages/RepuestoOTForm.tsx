@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import {
 import type { OrdenTrabajo } from "../types/ordenTrabajo";
 import type { Inventario } from "../types/inventario";
 import { useAuth } from "../context/AuthContext";
+import { SearchableSelect } from "../components/common/SearchableSelect";
 
 interface PendingRepuestoItem {
   tempId: string;
@@ -54,7 +55,6 @@ const RepuestoOTForm = () => {
 
   // Search filters inside selectors
   const [ordenSearchText, setOrdenSearchText] = useState("");
-  const [repuestoSearchText, setRepuestoSearchText] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -196,14 +196,22 @@ const RepuestoOTForm = () => {
     );
   });
 
-  const filteredRepuestos = inventarios.filter((i) => {
-    if (!repuestoSearchText.trim()) return true;
-    const term = repuestoSearchText.toLowerCase();
-    return (
-      (i.codigo && i.codigo.toLowerCase().includes(term)) ||
-      (i.descripcion && i.descripcion.toLowerCase().includes(term))
-    );
-  });
+  const repuestoOptions = useMemo(() => {
+    return inventarios.map((item) => {
+      const enLista = getCantidadEnLista(item.id);
+      const restante = Math.max(
+        0,
+        Number((Number(item.cantidad_existente || 0) - enLista).toFixed(4))
+      );
+      const codigo = item.codigo ? `[${item.codigo}] ` : "";
+      const unidad = item.unidad_medida?.unidad || item.unidad_medida?.medida || "uds.";
+      return {
+        value: item.id,
+        label: `${codigo}${item.descripcion}`,
+        sublabel: `Stock: ${restante}${enLista > 0 ? ` (en almacén: ${item.cantidad_existente})` : ""} ${unidad}`,
+      };
+    });
+  }, [inventarios, pendingItems]);
 
   const buildPayload = (
     ordenId: number,
@@ -536,34 +544,13 @@ const RepuestoOTForm = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Repuesto / Material de Almacén *
                 </label>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por código o descripción del repuesto..."
-                      value={repuestoSearchText}
-                      onChange={(e) => setRepuestoSearchText(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500 mb-1.5"
-                    />
-                  </div>
-                  <select
-                    value={selectedInventarioId}
-                    onChange={(e) => setSelectedInventarioId(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-[#3498db] transition-colors text-sm cursor-pointer"
-                  >
-                    <option value="">-- Seleccione un Repuesto o Material del Inventario --</option>
-                    {filteredRepuestos.map((item) => {
-                      const enLista = getCantidadEnLista(item.id);
-                      const restante = Math.max(0, Number((Number(item.cantidad_existente || 0) - enLista).toFixed(4)));
-                      return (
-                        <option key={item.id} value={item.id}>
-                          {item.codigo ? `[${item.codigo}] ` : ""}{item.descripcion} — (Stock: {restante}{enLista > 0 ? ` de ${item.cantidad_existente}` : ""} {item.unidad_medida?.medida || "uds."})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                <SearchableSelect
+                  options={repuestoOptions}
+                  value={selectedInventarioId ? Number(selectedInventarioId) : ""}
+                  onChange={(val) => setSelectedInventarioId(val ? String(val) : "")}
+                  placeholder="-- Seleccione un Repuesto o Material del Inventario --"
+                  searchPlaceholder="Buscar por código o descripción del repuesto..."
+                />
               </div>
 
               {/* Ficha de Stock y Especificación del Repuesto Seleccionado */}

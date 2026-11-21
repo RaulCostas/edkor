@@ -27,6 +27,11 @@ body {
   font-size: 16px;
 }
 
+/* SweetAlert2 debe posicionarse SIEMPRE en la capa superior absoluta (por encima de cualquier modal, drawer o backdrop) */
+.swal2-container {
+  z-index: 99999999 !important;
+}
+
 /* Eliminate native browser black outline flash on focus */
 input, select, textarea, button {
   outline: none;

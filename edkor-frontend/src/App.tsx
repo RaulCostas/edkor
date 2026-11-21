@@ -59,6 +59,7 @@ import HojaDiaria from "./pages/HojaDiaria";
 import Utilidades from "./pages/Utilidades";
 import HojaRecepcionList from "./pages/HojaRecepcionList";
 import HojaRecepcionForm from "./pages/HojaRecepcionForm";
+import OtrosIngresosList from "./pages/OtrosIngresosList";
 import UtilidadOrdenesMensual from "./pages/UtilidadOrdenesMensual";
 import CambiarPassword from "./pages/CambiarPassword";
 import "./App.css";
@@ -105,6 +106,10 @@ function App() {
                     <Route
                       path="ordenes-trabajo/list"
                       element={<OrdenesTrabajoList />}
+                    />
+                    <Route
+                      path="otros-ingresos"
+                      element={<OtrosIngresosList />}
                     />
                     <Route
                       path="utilidad-ordenes"

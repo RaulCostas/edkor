@@ -120,10 +120,15 @@ const Home = () => {
   const [selectedOrden, setSelectedOrden] = useState<OrdenTrabajo | null>(null);
   const [ordenDetalles, setOrdenDetalles] = useState<DetalleOrdenTrabajo[]>([]);
 
-  const hasInicioPermission = (permissionKey: string) =>
-    !user?.rol ||
-    user.rol.nombre?.toLowerCase() === "admin" ||
-    user.rol.permisos?.[permissionKey] === true;
+  const hasInicioPermission = (permissionKey: string) => {
+    const roleName = user?.rol?.nombre?.toLowerCase()?.trim();
+    return (
+      !user?.rol ||
+      roleName === "admin" ||
+      roleName === "administrador" ||
+      user.rol.permisos?.[permissionKey] === true
+    );
+  };
 
   const canSeeOrdenesProceso = hasInicioPermission("inicio_ordenes_proceso");
   const canSeeOrdenesTerminadas = hasInicioPermission("inicio_ordenes_terminadas");

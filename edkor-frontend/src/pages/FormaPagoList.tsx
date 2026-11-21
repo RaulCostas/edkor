@@ -135,9 +135,41 @@ const FormaPagoList = () => {
     };
 
     const handleSave = async (formaPagoData: Omit<FormaPago, 'id'>) => {
+        const nombreNuevo = (formaPagoData.forma_pago || '').trim();
+        if (!nombreNuevo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'El nombre de la forma de pago es obligatorio.'
+            });
+            return;
+        }
+
+        const duplicado = formasPago.find(fp =>
+            fp.forma_pago?.trim().toLowerCase() === nombreNuevo.toLowerCase() &&
+            (!editingFormaPago || String(fp.id) !== String(editingFormaPago.id))
+        );
+
+        if (duplicado) {
+            if (duplicado.estado === 'inactivo') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Forma de pago existente inactiva',
+                    text: `La forma de pago "${nombreNuevo}" ya existe en estado inactivo. Puede reactivarla desde el listado.`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Forma de pago duplicada',
+                    text: `Ya existe una forma de pago con el nombre "${nombreNuevo}".`
+                });
+            }
+            return;
+        }
+
         try {
             if (editingFormaPago) {
-                await updateFormaPago(editingFormaPago.id, formaPagoData);
+                await updateFormaPago(editingFormaPago.id, { ...formaPagoData, forma_pago: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Actualizado',
@@ -146,7 +178,7 @@ const FormaPagoList = () => {
                     timer: 1500
                 });
             } else {
-                await createFormaPago(formaPagoData);
+                await createFormaPago({ ...formaPagoData, forma_pago: nombreNuevo });
                 await Swal.fire({
                     icon: 'success',
                     title: 'Creado',
@@ -158,11 +190,11 @@ const FormaPagoList = () => {
             setShowModal(false);
             setEditingFormaPago(null);
             fetchFormasPago();
-        } catch (err) {
+        } catch (err: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar'
+                text: err.response?.data?.message || 'Error al guardar'
             });
             throw err;
         }

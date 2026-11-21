@@ -18,8 +18,8 @@ export const ProtectedRoute = ({
     if (!user) return;
     if (permission) {
       if (!user.rol) return; // Si no tiene rol, asumimos que es el admin principal / legacy
-      const roleName = user.rol?.nombre?.toLowerCase();
-      if (roleName === "admin") return; // Admin has all permissions
+      const roleName = user.rol?.nombre?.toLowerCase()?.trim();
+      if (roleName === "admin" || roleName === "administrador") return; // Admin has all permissions
 
       const hasPermission = user.rol?.permisos?.[permission] === true;
       if (!hasPermission) {
@@ -45,8 +45,8 @@ export const ProtectedRoute = ({
   }
 
   if (permission && user.rol) {
-    const roleName = user.rol?.nombre?.toLowerCase();
-    if (roleName !== "admin" && user.rol?.permisos?.[permission] !== true) {
+    const roleName = user.rol?.nombre?.toLowerCase()?.trim();
+    if (roleName !== "admin" && roleName !== "administrador" && user.rol?.permisos?.[permission] !== true) {
       return <Navigate to="/" replace />;
     }
   }
