@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { exportStandardPDF } from "../utils/pdfExportHelper";
 import { StandardExportToolbar } from "../components/common/StandardExportToolbar";
 import { StandardPrintHeader, StandardPrintFooter } from "../components/common/StandardPrintHeader";
+import { getLocalDateString } from "../utils/dateUtils";
 
 // Interfaces
 interface DetailItem {
@@ -41,7 +42,7 @@ const Utilidades: React.FC = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7),
+    getLocalDateString().slice(0, 7),
   ); // YYYY-MM
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString(),
@@ -137,7 +138,7 @@ const Utilidades: React.FC = () => {
       // Client-side filtering check
       const isInRange = (dateStr: string) => {
         if (!dateStr) return false;
-        const d = new Date(dateStr).toISOString().split("T")[0];
+        const d = getLocalDateString(dateStr);
         return d >= finalStartDate && d <= finalEndDate;
       };
 

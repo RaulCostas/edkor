@@ -5,6 +5,7 @@ import { CreatePagosPlanillaDto } from './dto/create-pagos-planilla.dto';
 import { UpdatePagosPlanillaDto } from './dto/update-pagos-planilla.dto';
 import { PagoPlanilla } from './entities/pagos-planilla.entity';
 import { Planilla } from '../planillas/entities/planilla.entity';
+import { getBoliviaDateString } from '../utils/date-utils';
 
 @Injectable()
 export class PagosPlanillasService {
@@ -25,7 +26,7 @@ export class PagosPlanillasService {
       ...(iduser ? { user: { id: iduser } } : {}),
       monto,
       observaciones,
-      fecha_pago: fecha_pago || new Date().toISOString().split('T')[0]
+      fecha_pago: fecha_pago || getBoliviaDateString()
     });
 
     const savedPago = await this.pagoRepository.save(pago);

@@ -6,6 +6,7 @@ import { UpdateDetalleOrdenTrabajoDto } from './dto/update-detalle-orden-trabajo
 import { DetalleOrdenTrabajo } from './entities/detalle-orden-trabajo.entity';
 import { OrdenesTrabajoService } from '../ordenes-trabajo/ordenes-trabajo.service';
 import { InventarioService } from '../inventario/inventario.service';
+import { getBoliviaDateString } from '../utils/date-utils';
 
 @Injectable()
 export class DetalleOrdenTrabajoService {
@@ -206,11 +207,11 @@ export class DetalleOrdenTrabajoService {
                 );
             } else {
                 const fechaAsig = detalle.orden_trabajo?.fecha_registro
-                    ? new Date(detalle.orden_trabajo.fecha_registro).toISOString().split('T')[0]
-                    : new Date().toISOString().split('T')[0];
+                    ? getBoliviaDateString(new Date(detalle.orden_trabajo.fecha_registro))
+                    : getBoliviaDateString();
                 const estadoOT = (detalle.orden_trabajo?.estado || '').toLowerCase();
                 const isTerminada = estadoOT.startsWith('terminad') || estadoOT.startsWith('finaliz') || estadoOT.includes('cerrad');
-                const fechaEntrega = isTerminada ? new Date().toISOString().split('T')[0] : null;
+                const fechaEntrega = isTerminada ? getBoliviaDateString() : null;
 
                 await manager.query(
                     `INSERT INTO trabajos_asignados (iddetalle_orden_trabajo, idpersonal, fecha_asignado, fecha_entrega, monto, cancelado, idusuario) VALUES ($1, $2, $3, $4, $5, false, $6)`,

@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination';
 import { exportStandardPDF } from '../utils/pdfExportHelper';
 import { StandardExportToolbar } from '../components/common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../components/common/StandardPrintHeader';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface Falta {
     id: number;
@@ -64,7 +65,7 @@ const FaltasList = () => {
     const itemsPerPage = 10;
 
     // Form State
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const [selectedPersonalId, setSelectedPersonalId] = useState('');
     const [fecha, setFecha] = useState(todayStr);
     const [fechaFin, setFechaFin] = useState(todayStr);
@@ -183,7 +184,7 @@ const FaltasList = () => {
     };
 
     const closeModal = () => {
-        const nowStr = new Date().toISOString().split('T')[0];
+        const nowStr = getLocalDateString();
         setModalOpen(false);
         setEditingId(null);
         setSelectedPersonalId('');

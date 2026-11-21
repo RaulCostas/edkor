@@ -8,6 +8,7 @@ import { ClipboardList, Wallet, Users, ShoppingBag, Banknote, Landmark, Search, 
 import { exportStandardPDF } from '../utils/pdfExportHelper';
 import { StandardExportToolbar } from '../components/common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../components/common/StandardPrintHeader';
+import { getLocalDateString } from '../utils/dateUtils';
 
 // Interfaces for TALLER
 interface PagoOrden {
@@ -97,7 +98,7 @@ interface Summary {
 
 const HojaDiaria: React.FC = () => {
     // State
-    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
     const [showManual, setShowManual] = useState(false);
 
     const manualSections: ManualSection[] = [
@@ -172,7 +173,7 @@ const HojaDiaria: React.FC = () => {
 
             // Client-side filtering check
             const isInRange = (dateStr: string) => {
-                const d = new Date(dateStr).toISOString().split('T')[0];
+                const d = getLocalDateString(dateStr);
                 return d >= startDateStr && d <= endDateStr;
             };
 

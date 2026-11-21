@@ -12,14 +12,15 @@ import { exportStandardPDF } from '../../utils/pdfExportHelper';
 import { StandardExportToolbar } from '../common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../common/StandardPrintHeader';
 import { API_BASE_URL } from '../../config';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 const EgresoList = () => {
     const [egresos, setEgresos] = useState<Egreso[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(getLocalDateString());
+    const [endDate, setEndDate] = useState(getLocalDateString());
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -107,7 +108,7 @@ const EgresoList = () => {
     };
 
     const handleToday = () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         setStartDate(today);
         setEndDate(today);
     };

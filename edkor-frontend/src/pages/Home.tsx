@@ -38,6 +38,7 @@ import {
 import Swal from "sweetalert2";
 import api from "../services/api";
 import ViewOrdenModal from "../components/ViewOrdenModal";
+import { getBoliviaDateParts } from "../utils/dateUtils";
 
 interface GastoFijo {
   id: number;
@@ -270,12 +271,17 @@ const Home = () => {
     );
   }
 
-  const cumpleanerosHoy = cumpleaneros.filter((c) => c.esHoy);
+  const boToday = getBoliviaDateParts();
+  const cumpleanerosHoy = cumpleaneros.filter(
+    (c) => c.mes === boToday.month && c.dia === boToday.day
+  );
 
   const filteredCumpleaneros = cumpleaneros.filter((c) => {
     if (cumpleFiltroTipo !== "todos" && c.tipo !== cumpleFiltroTipo) return false;
-    if (cumpleFiltroPeriodo === "hoy") return c.esHoy;
-    if (cumpleFiltroPeriodo === "mes") return c.esEsteMes;
+    const isHoy = c.mes === boToday.month && c.dia === boToday.day;
+    const isEsteMes = c.mes === boToday.month;
+    if (cumpleFiltroPeriodo === "hoy") return isHoy;
+    if (cumpleFiltroPeriodo === "mes") return isEsteMes;
     if (cumpleFiltroPeriodo === "proximos") return c.diasRestantes <= 30;
     return true;
   });

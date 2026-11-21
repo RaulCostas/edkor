@@ -19,6 +19,7 @@ import Pagination from './Pagination';
 import ManualModal, { type ManualSection } from './ManualModal';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface PaginatedResponse {
     data: Egreso[];
@@ -34,8 +35,8 @@ const EgresoList: React.FC = () => {
 
     // Date & Calendar State
     const [calendarValue, setCalendarValue] = useState<any>(new Date());
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);   // Default to today
+    const [startDate, setStartDate] = useState(getLocalDateString()); // Default to today
+    const [endDate, setEndDate] = useState(getLocalDateString());   // Default to today
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -133,7 +134,7 @@ const EgresoList: React.FC = () => {
     const handleClearSearch = () => {
         const today = new Date();
         setCalendarValue(today);
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
         setStartDate(todayStr);
         setEndDate(todayStr);
         setSearchTerm('');

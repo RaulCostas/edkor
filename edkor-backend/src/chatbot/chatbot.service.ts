@@ -15,6 +15,7 @@ import { InventarioService } from '../inventario/inventario.service';
 import { PagosGastosFijosService } from '../pagos_gastos_fijos/pagos_gastos_fijos.service';
 import { GastosFijosService } from '../gastos_fijos/gastos_fijos.service';
 import { ReportesService } from '../reportes/reportes.service';
+import { getBoliviaDateParts, getBoliviaDateString } from '../utils/date-utils';
 
 @Injectable()
 export class ChatbotService implements OnModuleInit, OnModuleDestroy {
@@ -527,8 +528,7 @@ export class ChatbotService implements OnModuleInit, OnModuleDestroy {
         // Check for "Hoja Diaria" query
         if (normalizedText.includes('hoja diaria')) {
             try {
-                const now = new Date();
-                const today = now.toISOString().split('T')[0];
+                const today = getBoliviaDateString();
                 const res = await this.reportesService.getHojaDiaria(today);
 
                 let reply = "📋 *HOJA DIARIA - RESUMEN DE HOY*\n";
@@ -589,9 +589,8 @@ export class ChatbotService implements OnModuleInit, OnModuleDestroy {
         // Check for "Gastos Fijos" query
         if (normalizedText.includes('gastos fijos')) {
             try {
-                const now = new Date();
-                const today = now.toISOString().split('T')[0];
-                const currentDay = now.getDate();
+                const today = getBoliviaDateString();
+                const { day: currentDay } = getBoliviaDateParts();
 
                 const pagos = await this.pagosFijosService.findAll(today);
                 const programados = await this.gastosFijosService.findByDay(currentDay);

@@ -8,6 +8,7 @@ import { uploadFile } from '../services/fileService';
 import { API_BASE_URL } from '../config';
 import type { FormaPago } from '../types/formaPago';
 import type { MaterialPedido } from '../types/materialPedido';
+import { getLocalDateString } from '../utils/dateUtils';
 
 export interface PagoPedidoItem {
     id: number;
@@ -35,7 +36,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
     const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
 
     // Form State
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
     const [factura, setFactura] = useState('');
     const [recibo, setRecibo] = useState('');
     const [moneda, setMoneda] = useState('Bolivianos');
@@ -53,7 +54,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
         if (isOpen) {
             fetchFormasPago();
             if (pagoToEdit) {
-                setFecha(pagoToEdit.fecha ? pagoToEdit.fecha.split('T')[0] : new Date().toISOString().split('T')[0]);
+                setFecha(pagoToEdit.fecha ? getLocalDateString(pagoToEdit.fecha) : getLocalDateString());
                 setFactura(pagoToEdit.factura || '');
                 setRecibo(pagoToEdit.recibo || '');
                 setMoneda(pagoToEdit.moneda || 'Bolivianos');
@@ -77,7 +78,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
     };
 
     const resetForm = () => {
-        setFecha(new Date().toISOString().split('T')[0]);
+        setFecha(getLocalDateString());
         setFactura('');
         setRecibo('');
         setMoneda('Bolivianos');

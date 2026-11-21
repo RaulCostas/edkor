@@ -23,18 +23,19 @@ import Pagination from '../components/Pagination';
 import ManualModal, { type ManualSection } from '../components/ManualModal';
 import { StandardExportToolbar } from '../components/common/StandardExportToolbar';
 import { exportStandardPDF } from '../utils/pdfExportHelper';
+import { getLocalDateString } from '../utils/dateUtils';
 import UtilidadOrdenModal from '../components/UtilidadOrdenModal';
 
 export const UtilidadOrdenesMensual = () => {
     // Current date helpers
-    const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const todayStr = getLocalDateString();
+    const currentMonthStr = todayStr.slice(0, 7);
 
     // Filters state
     const [filterMode, setFilterMode] = useState<'month' | 'range'>('month');
     const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
     const [startDate, setStartDate] = useState<string>(`${currentMonthStr}-01`);
-    const [endDate, setEndDate] = useState<string>(now.toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState<string>(todayStr);
     const [selectedEstado, setSelectedEstado] = useState<string>('todos');
     const [selectedAsesor, setSelectedAsesor] = useState<string>('todos');
     const [searchTerm, setSearchTerm] = useState<string>('');

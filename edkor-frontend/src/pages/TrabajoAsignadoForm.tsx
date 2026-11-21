@@ -11,6 +11,7 @@ import {
 import type { DetalleOrdenTrabajo } from "../types/detalleOrdenTrabajo";
 import type { Personal } from "../types/personal";
 import type { TrabajoAsignado } from "../types/trabajoAsignado"; // Confirm type path
+import { getLocalDateString } from "../utils/dateUtils";
 import Swal from "sweetalert2";
 import {
   Save,
@@ -89,10 +90,10 @@ const TrabajoAsignadoForm = () => {
         initialForms[detalle.id] = {
           idpersonal: trabajo?.personal?.id || "",
           fecha_asignado: trabajo?.fecha_asignado
-            ? new Date(trabajo.fecha_asignado).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
+            ? getLocalDateString(trabajo.fecha_asignado)
+            : getLocalDateString(),
           fecha_entrega: trabajo?.fecha_entrega
-            ? new Date(trabajo.fecha_entrega).toISOString().split("T")[0]
+            ? getLocalDateString(trabajo.fecha_entrega)
             : "",
           monto: trabajo?.monto?.toString() || "",
           observaciones: trabajo?.observaciones || "",
@@ -210,7 +211,7 @@ const TrabajoAsignadoForm = () => {
           ...prev,
           [detalleId]: {
             idpersonal: "",
-            fecha_asignado: new Date().toISOString().split("T")[0],
+            fecha_asignado: getLocalDateString(),
             fecha_entrega: "",
             monto: "",
             observaciones: "",

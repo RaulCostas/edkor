@@ -1,3 +1,5 @@
+process.env.TZ = process.env.TZ || 'America/La_Paz';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';

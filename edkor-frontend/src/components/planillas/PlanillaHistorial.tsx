@@ -12,6 +12,7 @@ import { StandardExportToolbar } from '../common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../common/StandardPrintHeader';
 import ManualModal, { type ManualSection } from '../ManualModal';
 import PlanillaPrintView from './PlanillaPrintView';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface Planilla {
     id: number;
@@ -66,7 +67,7 @@ const PlanillaHistorial = () => {
     const itemsPerPage = 10;
 
     // Payment Form State
-    const [fechaPago, setFechaPago] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaPago, setFechaPago] = useState(getLocalDateString());
     const [idFormaPago, setIdFormaPago] = useState('');
     const [idUser, setIdUser] = useState(''); // Fallback user ID
     const [monto, setMonto] = useState('');
@@ -122,7 +123,7 @@ const PlanillaHistorial = () => {
     const openPaymentModal = (planilla: Planilla) => {
         setSelectedPlanilla(planilla);
         setMonto(Number(planilla.total_planilla).toFixed(2));
-        setFechaPago(new Date().toISOString().split('T')[0]);
+        setFechaPago(getLocalDateString());
         setModalOpen(true);
     };
 
@@ -131,7 +132,7 @@ const PlanillaHistorial = () => {
         setSelectedPlanilla(null);
         setIdFormaPago('');
         setObservaciones('');
-        setFechaPago(new Date().toISOString().split('T')[0]);
+        setFechaPago(getLocalDateString());
     };
 
     const openViewModal = (planilla: Planilla) => {

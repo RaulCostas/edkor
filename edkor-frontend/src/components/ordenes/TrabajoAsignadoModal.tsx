@@ -6,6 +6,7 @@ import { getPersonal } from '../../services/personalService';
 import { createTrabajoAsignado, updateTrabajoAsignado, getTrabajoByDetalle, deleteTrabajoAsignado } from '../../services/trabajoAsignadoService';
 import type { Personal } from '../../types/personal';
 import type { TrabajoAsignado } from '../../types/trabajoAsignado';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface TrabajoAsignadoModalProps {
     isOpen: boolean;
@@ -55,8 +56,8 @@ export const TrabajoAsignadoModal: React.FC<TrabajoAsignadoModalProps> = ({ isOp
 
                 initialForms[detalle.id] = {
                     idpersonal: trabajo?.personal?.id || '',
-                    fecha_asignado: trabajo?.fecha_asignado ? new Date(trabajo.fecha_asignado).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                    fecha_entrega: trabajo?.fecha_entrega ? new Date(trabajo.fecha_entrega).toISOString().split('T')[0] : '',
+                    fecha_asignado: trabajo?.fecha_asignado ? getLocalDateString(trabajo.fecha_asignado) : getLocalDateString(),
+                    fecha_entrega: trabajo?.fecha_entrega ? getLocalDateString(trabajo.fecha_entrega) : '',
                     monto: trabajo?.monto?.toString() || '',
                     observaciones: trabajo?.observaciones || ''
                 };

@@ -9,6 +9,7 @@ import { exportStandardPDF } from '../utils/pdfExportHelper';
 import { StandardExportToolbar } from '../components/common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../components/common/StandardPrintHeader';
 import ManualModal, { type ManualSection } from '../components/ManualModal';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface Anticipo {
     id: number;
@@ -38,11 +39,11 @@ const AnticiposList = () => {
 
     // Form State
     const [selectedPersonalId, setSelectedPersonalId] = useState('');
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
     const [monto, setMonto] = useState('');
     const [motivo, setMotivo] = useState('');
     const [estado, setEstado] = useState('Pendiente');
-    const [mesAplicacion, setMesAplicacion] = useState(new Date().toISOString().slice(0, 7));
+    const [mesAplicacion, setMesAplicacion] = useState(getLocalDateString().slice(0, 7));
 
     useEffect(() => {
         fetchAnticipos();
@@ -153,7 +154,7 @@ const AnticiposList = () => {
         setMonto(ant.monto.toString());
         setMotivo(ant.motivo);
         setEstado(ant.estado);
-        setMesAplicacion(ant.mes_aplicacion || new Date().toISOString().slice(0, 7));
+        setMesAplicacion(ant.mes_aplicacion || getLocalDateString().slice(0, 7));
         setModalOpen(true);
     };
 
@@ -161,11 +162,11 @@ const AnticiposList = () => {
         setModalOpen(false);
         setEditingId(null);
         setSelectedPersonalId('');
-        setFecha(new Date().toISOString().split('T')[0]);
+        setFecha(getLocalDateString());
         setMonto('');
         setMotivo('');
         setEstado('Pendiente');
-        setMesAplicacion(new Date().toISOString().slice(0, 7));
+        setMesAplicacion(getLocalDateString().slice(0, 7));
     };
 
     const getStatusColor = (status: string) => {

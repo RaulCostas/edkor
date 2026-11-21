@@ -5,6 +5,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { OrdenTrabajo } from './entities/orden-trabajo.entity';
 import { DetalleOrdenTrabajo } from '../detalle-orden-trabajo/entities/detalle-orden-trabajo.entity';
+import { getBoliviaDateParts, getBoliviaDateString } from '../utils/date-utils';
 
 @Injectable()
 export class OrdenesTrabajoService {
@@ -97,7 +98,7 @@ export class OrdenesTrabajoService {
                 const savedDetalles = await transactionalEntityManager.save(detallesEntities);
 
                 // Sincronizar mecánicos asignados a trabajos_asignados
-                const fechaAsig = savedOrden.fecha_registro ? new Date(savedOrden.fecha_registro).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                const fechaAsig = savedOrden.fecha_registro ? getBoliviaDateString(new Date(savedOrden.fecha_registro)) : getBoliviaDateString();
                 for (const d of savedDetalles) {
                     if (d.idpersonal_mecanico && d.estado_trabajo !== 'descartado') {
                         const totalCosto = Number(d.total_costo || 0);
@@ -996,10 +997,9 @@ export class OrdenesTrabajoService {
             fechaInicio = `${mes}-01 00:00:00`;
             fechaFin = `${mes}-${String(lastDay).padStart(2, '0')} 23:59:59`;
         } else {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+            const { year: y, month: mNum } = getBoliviaDateParts();
+            const m = String(mNum).padStart(2, '0');
+            const lastDay = new Date(y, mNum, 0).getDate();
             fechaInicio = `${y}-${m}-01 00:00:00`;
             fechaFin = `${y}-${m}-${String(lastDay).padStart(2, '0')} 23:59:59`;
         }

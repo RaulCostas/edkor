@@ -7,6 +7,7 @@ import { uploadFile } from '../../services/fileService';
 import { API_BASE_URL } from '../../config';
 import type { FormaPago } from '../../types/formaPago';
 import type { CreateEgresoData, Egreso } from '../../types/egreso';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface EgresoFormProps {
     isOpen: boolean;
@@ -19,7 +20,7 @@ interface EgresoFormProps {
 const EgresoForm: React.FC<EgresoFormProps> = ({ isOpen, onClose, onSuccess, egreso, initialOrdenId }) => {
     const isEditMode = !!egreso;
 
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
     const [detalle, setDetalle] = useState('');
     const [monto, setMonto] = useState('');
     const [moneda, setMoneda] = useState('Bolivianos');
@@ -38,7 +39,7 @@ const EgresoForm: React.FC<EgresoFormProps> = ({ isOpen, onClose, onSuccess, egr
             fetchFormasPago();
             fetchOrdenes();
             if (egreso) {
-                setFecha(new Date(egreso.fecha).toISOString().split('T')[0]);
+                setFecha(getLocalDateString(egreso.fecha));
                 setDetalle(egreso.detalle);
                 setMonto(egreso.monto.toString());
                 setMoneda(egreso.moneda);
@@ -47,7 +48,7 @@ const EgresoForm: React.FC<EgresoFormProps> = ({ isOpen, onClose, onSuccess, egr
                 setImagen(egreso.imagen || '');
             } else {
                 // Reset form for new entry
-                setFecha(new Date().toISOString().split('T')[0]);
+                setFecha(getLocalDateString());
                 setDetalle('');
                 setMonto('');
                 setMoneda('Bolivianos');

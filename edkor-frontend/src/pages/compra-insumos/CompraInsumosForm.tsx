@@ -19,6 +19,7 @@ import { getProveedores } from "../../services/proveedorService";
 import { getFormasPago } from "../../services/formaPagoService";
 import type { Proveedor } from "../../types/proveedor";
 import type { FormaPago } from "../../types/formaPago";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 interface CompraInsumosFormProps {
   record?: CompraInsumo;
@@ -39,7 +40,7 @@ const CompraInsumosForm = ({
 
   // Form State
   const [formData, setFormData] = useState<CreateCompraInsumoData>({
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: getLocalDateString(),
     descripcion: "",
     cantidad: 0,
     precio_unitario: 0,
@@ -69,7 +70,7 @@ const CompraInsumosForm = ({
     } else {
       // Reset form when switching to "New" mode
       setFormData({
-        fecha: new Date().toISOString().split("T")[0],
+        fecha: getLocalDateString(),
         descripcion: "",
         cantidad: 0,
         precio_unitario: 0,

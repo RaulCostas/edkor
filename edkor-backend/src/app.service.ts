@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { getBoliviaDateParts } from './utils/date-utils';
 
 @Injectable()
 export class AppService {
@@ -10,10 +11,7 @@ export class AppService {
   }
 
   async getCumpleaneros() {
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentDay = now.getDate();
-    const currentYear = now.getFullYear();
+    const { year: currentYear, month: currentMonth, day: currentDay } = getBoliviaDateParts();
 
     // 1. Personal
     const personalRows = await this.dataSource.query(`
@@ -101,7 +99,7 @@ export class AppService {
         edad = currentYear - y;
       }
 
-      const todayDate = new Date(currentYear, now.getMonth(), now.getDate());
+      const todayDate = new Date(currentYear, currentMonth - 1, currentDay);
       let nextBirthday = new Date(currentYear, m - 1, d);
       if (nextBirthday < todayDate) {
         nextBirthday = new Date(currentYear + 1, m - 1, d);

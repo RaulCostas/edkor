@@ -6,6 +6,7 @@ import { getInventarios } from '../../services/inventarioService';
 import { getPersonal } from '../../services/personalService';
 import type { Inventario } from '../../types/inventario';
 import type { Personal } from '../../types/personal';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface MaterialUtilizadoModalProps {
     isOpen: boolean;
@@ -18,7 +19,7 @@ const MaterialUtilizadoModal = ({ isOpen, onClose, ordenId }: MaterialUtilizadoM
     const [historyLoading, setHistoryLoading] = useState(false);
 
     // Form Data
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
     const [selectedPersonal, setSelectedPersonal] = useState('');
     const [selectedInventario, setSelectedInventario] = useState('');
     const [cantidad, setCantidad] = useState('');
@@ -38,7 +39,7 @@ const MaterialUtilizadoModal = ({ isOpen, onClose, ordenId }: MaterialUtilizadoM
             fetchHistory();
         } else {
             // Reset form when closed
-            setFecha(new Date().toISOString().split('T')[0]);
+            setFecha(getLocalDateString());
             setSelectedPersonal('');
             setSelectedInventario('');
             setCantidad('');
