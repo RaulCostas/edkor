@@ -5,12 +5,14 @@ interface OrdenesTrabajoListPrintViewProps {
   ordenes: OrdenTrabajo[];
   searchTerm?: string;
   selectedTipoOrden?: string;
+  selectedEstado?: string;
 }
 
 export const OrdenesTrabajoListPrintView: React.FC<OrdenesTrabajoListPrintViewProps> = ({
   ordenes,
   searchTerm,
   selectedTipoOrden,
+  selectedEstado,
 }) => {
   const totalMonto = ordenes.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
 
@@ -56,10 +58,13 @@ export const OrdenesTrabajoListPrintView: React.FC<OrdenesTrabajoListPrintViewPr
           <p className="text-[10px] text-gray-700 font-semibold uppercase">
             EDKOR MOTORS - Control y Gestión de Taller
           </p>
-          {(searchTerm || selectedTipoOrden) && (
+          {(searchTerm || selectedTipoOrden || (selectedEstado && selectedEstado !== 'todos')) && (
             <p className="text-[9px] text-gray-500 italic mt-0.5">
-              Filtros: {selectedTipoOrden ? `Tipo: ${selectedTipoOrden}` : ''}{' '}
-              {searchTerm ? `| Búsqueda: "${searchTerm}"` : ''}
+              Filtros: {[
+                selectedTipoOrden ? `Tipo: ${selectedTipoOrden}` : '',
+                selectedEstado && selectedEstado !== 'todos' ? `Estado: ${selectedEstado}` : '',
+                searchTerm ? `Búsqueda: "${searchTerm}"` : ''
+              ].filter(Boolean).join(' | ')}
             </p>
           )}
         </div>

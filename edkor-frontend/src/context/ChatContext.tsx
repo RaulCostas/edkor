@@ -11,6 +11,7 @@ interface ChatContextType {
   activeUsers: string[];
   loginUser: (user: any) => void;
   logoutUser: () => void;
+  reconnect: () => void;
 }
 
 export interface Message {
@@ -51,18 +52,70 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       socketRef.current = null;
     }
 
-    const newSocket = io(SOCKET_URL);
+    // Resolver URL y path para WebSocket de forma inteligente
+    let serverUrl = API_BASE_URL || window.location.origin;
+    let socketPath = "/socket.io";
+
+    // Si la URL es relativa (/api o similar)
+    if (serverUrl.startsWith("/")) {
+      serverUrl = window.location.origin + serverUrl;
+    }
+
+    try {
+      const parsed = new URL(serverUrl);
+      // Prevenir bloqueo Mixed Content en producción HTTPS
+      if (
+        typeof window !== "undefined" &&
+        window.location.protocol === "https:" &&
+        parsed.protocol === "http:" &&
+        parsed.hostname !== "localhost" &&
+        parsed.hostname !== "127.0.0.1"
+      ) {
+        parsed.protocol = "https:";
+      }
+
+      // Si la API tiene prefijo de ruta (ej: https://dominio.com/api), socket.io debe usar ese path
+      if (parsed.pathname && parsed.pathname !== "/") {
+        socketPath = `${parsed.pathname.replace(/\/+$/, "")}/socket.io`;
+      }
+      serverUrl = parsed.origin;
+    } catch (e) {
+      console.warn("Error parsing API_BASE_URL for socket:", e);
+    }
+
+    console.log(`[Chat] Conectando a ${serverUrl} con path ${socketPath}`);
+
+    const newSocket = io(serverUrl, {
+      path: socketPath,
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
     socketRef.current = newSocket;
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
-      console.log("Connected to chat server");
+      console.log("[Chat] Conectado exitosamente al servidor de chat");
       setIsConnected(true);
       newSocket.emit("join", name);
     });
 
-    newSocket.on("disconnect", () => {
-      console.log("Disconnected from chat server");
+    newSocket.on("connect_error", (err) => {
+      console.warn("[Chat] Error de conexión socket:", err.message);
+      setIsConnected(false);
+    });
+
+    newSocket.on("reconnect", () => {
+      console.log("[Chat] Reconectado al servidor de chat");
+      setIsConnected(true);
+      newSocket.emit("join", name);
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("[Chat] Desconectado del servidor de chat. Razón:", reason);
       setIsConnected(false);
       setActiveUsers([]);
     });
@@ -79,6 +132,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const loginUser = (user: any) => {
     setSenderName(user.name);
     connectSocket(user.name);
+  };
+
+  const reconnect = () => {
+    if (senderName) {
+      connectSocket(senderName);
+    } else {
+      const user = localStorage.getItem("user");
+      if (user) {
+        try {
+          const parsedUser = JSON.parse(user);
+          if (parsedUser?.name) {
+            setSenderName(parsedUser.name);
+            connectSocket(parsedUser.name);
+          }
+        } catch (e) {
+          console.error("Error parsing user from localStorage", e);
+        }
+      }
+    }
   };
 
   const logoutUser = () => {
@@ -133,6 +205,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         activeUsers,
         loginUser,
         logoutUser,
+        reconnect,
       }}
     >
       {children}

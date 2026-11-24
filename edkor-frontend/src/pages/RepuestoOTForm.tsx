@@ -53,9 +53,6 @@ const RepuestoOTForm = () => {
   const [observaciones, setObservaciones] = useState<string>("");
   const [pendingItems, setPendingItems] = useState<PendingRepuestoItem[]>([]);
 
-  // Search filters inside selectors
-  const [ordenSearchText, setOrdenSearchText] = useState("");
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -184,17 +181,19 @@ const RepuestoOTForm = () => {
     setPendingItems((prev) => prev.filter((item) => item.tempId !== tempId));
   };
 
-  // Filtered dropdown lists for search
-  const filteredOrdenes = ordenes.filter((o) => {
-    if (!ordenSearchText.trim()) return true;
-    const term = ordenSearchText.toLowerCase();
-    return (
-      o.id.toString().includes(term) ||
-      (o.vehiculo_placa && o.vehiculo_placa.toLowerCase().includes(term)) ||
-      (o.cliente_nombre && o.cliente_nombre.toLowerCase().includes(term)) ||
-      (o.vehiculo_modelo && o.vehiculo_modelo.toLowerCase().includes(term))
-    );
-  });
+  const ordenOptions = useMemo(() => {
+    return ordenes.map((o) => {
+      const placa = (o.vehiculo_placa || "S/P").toUpperCase();
+      const cliente = o.cliente_nombre || "Sin cliente";
+      const vehiculo = `${o.marca_auto?.marca || o.vehiculo_marca || ""} ${o.vehiculo_modelo || ""}`.trim();
+      const nroOT = String(o.id).padStart(6, "0");
+      return {
+        value: o.id,
+        label: `OT #${nroOT} — Placa: ${placa} — Cliente: ${cliente}`,
+        sublabel: vehiculo ? `Vehículo: ${vehiculo}` : undefined,
+      };
+    });
+  }, [ordenes]);
 
   const repuestoOptions = useMemo(() => {
     return inventarios.map((item) => {
@@ -415,29 +414,14 @@ const RepuestoOTForm = () => {
                   Orden de Trabajo de Destino (Solo "En Proceso") *
                 </label>
                 <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Filtrar por N° OT, placa o cliente..."
-                      value={ordenSearchText}
-                      onChange={(e) => setOrdenSearchText(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 mb-1.5"
-                    />
-                  </div>
-                  <select
+                  <SearchableSelect
+                    options={ordenOptions}
+                    value={selectedOrdenId ? Number(selectedOrdenId) : ""}
+                    onChange={(val) => setSelectedOrdenId(val ? String(val) : "")}
+                    placeholder="-- Seleccione la Orden de Trabajo (En Proceso) --"
+                    searchPlaceholder="Buscar por N° OT, placa, cliente o vehículo..."
                     required
-                    value={selectedOrdenId}
-                    onChange={(e) => setSelectedOrdenId(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-[#3498db] transition-colors text-sm cursor-pointer"
-                  >
-                    <option value="">-- Seleccione la Orden de Trabajo (En Proceso) --</option>
-                    {filteredOrdenes.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        OT #{String(o.id).padStart(6, "0")} — Placa: {(o.vehiculo_placa || "S/P").toUpperCase()} — Cliente: {o.cliente_nombre || "S/N"} ({o.marca_auto?.marca || o.vehiculo_marca || ""} {o.vehiculo_modelo})
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {ordenes.length === 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
                       <AlertTriangle size={13} /> No hay órdenes de trabajo en estado "En Proceso" en este momento.

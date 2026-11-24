@@ -549,7 +549,7 @@ const compressImageFile = (file: File): Promise<string> => {
     const clean = nuevaMarcaNombre.trim();
     if (!clean) return;
 
-    const duplicado = marcas.find(m => m.marca?.trim().toLowerCase() === clean.toLowerCase());
+    const duplicado = marcasAuto.find(m => m.marca?.trim().toLowerCase() === clean.toLowerCase());
     if (duplicado) {
       Swal.fire({
         icon: "warning",

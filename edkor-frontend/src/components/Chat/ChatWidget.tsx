@@ -3,7 +3,7 @@ import "./ChatWidget.css";
 import { useChat } from "../../context/ChatContext";
 
 const ChatWidget: React.FC = () => {
-  const { isConnected, messages, sendMessage, senderName, activeUsers } =
+  const { isConnected, messages, sendMessage, senderName, activeUsers, reconnect } =
     useChat();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -115,7 +115,12 @@ const ChatWidget: React.FC = () => {
           <div className="chat-header">
             <div className="chat-title">
               <h3>Chat EDKOR MOTORS ({activeUsers.length})</h3>
-              <span className="chat-status">
+              <span
+                className="chat-status"
+                onClick={!isConnected ? reconnect : undefined}
+                style={{ cursor: !isConnected ? "pointer" : "default" }}
+                title={!isConnected ? "Clic para intentar reconectar" : undefined}
+              >
                 <div
                   className={`status-dot ${selectedUser ? "private" : isConnected ? "active" : "offline"}`}
                 ></div>
@@ -123,7 +128,7 @@ const ChatWidget: React.FC = () => {
                   ? `Chat con ${selectedUser}`
                   : isConnected
                     ? "Canal General"
-                    : "Desconectado"}
+                    : "Desconectado (Reconectar)"}
               </span>
             </div>
             <button

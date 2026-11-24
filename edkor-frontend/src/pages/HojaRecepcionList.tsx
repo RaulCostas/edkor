@@ -42,6 +42,7 @@ const HojaRecepcionList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTipoOrden, setSelectedTipoOrden] = useState<string>("");
+  const [selectedEstadoFilter, setSelectedEstadoFilter] = useState<string>("activas");
   const [selectedDateFilter, setSelectedDateFilter] = useState<"todos" | "hoy" | "ayer" | "semana">("todos");
   const [tiposOrden, setTiposOrden] = useState<TipoOrden[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,7 +186,7 @@ const HojaRecepcionList = () => {
       { align: "center" }
     );
 
-    if (searchTerm || selectedTipoOrden) {
+    if (searchTerm || selectedTipoOrden || (selectedEstadoFilter && selectedEstadoFilter !== "todos")) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
@@ -195,9 +196,25 @@ const HojaRecepcionList = () => {
       const tipoNombreLabel = matchedTipo
         ? matchedTipo.tipo_orden
         : selectedTipoOrden;
-      const filtroTexto = `Filtros: ${
-        selectedTipoOrden ? `Tipo: ${tipoNombreLabel}` : ""
-      } ${searchTerm ? `| Búsqueda: "${searchTerm}"` : ""}`;
+
+      const estadoLabels: Record<string, string> = {
+        activas: "Activas (Sin cerradas ni anuladas)",
+        pendiente: "Pendiente",
+        orden_creada: "Orden Creada",
+        en_proceso: "En Proceso",
+        terminado: "Terminado en Taller",
+        entregado_por_pagar: "Entregado por Pagar",
+        cerrada: "Orden Cerrada",
+        anulada: "Anulada",
+      };
+      const estadoLabel = estadoLabels[selectedEstadoFilter] || selectedEstadoFilter;
+
+      const filtrosParts = [];
+      if (selectedTipoOrden) filtrosParts.push(`Tipo: ${tipoNombreLabel}`);
+      if (selectedEstadoFilter && selectedEstadoFilter !== "todos") filtrosParts.push(`Estado: ${estadoLabel}`);
+      if (searchTerm) filtrosParts.push(`Búsqueda: "${searchTerm}"`);
+
+      const filtroTexto = `Filtros: ${filtrosParts.join(" | ")}`;
       doc.text(filtroTexto, pageWidth / 2, 22, { align: "center" });
     }
 
@@ -740,6 +757,34 @@ const HojaRecepcionList = () => {
       if (!matchesTipo) return false;
     }
 
+    // Filtro por Estado
+    const est = (h.estado || "").toLowerCase().trim();
+    const isAnulada = est === "anulada" || est === "anulado" || est === "inactivo";
+    const isCerrada = est === "orden cerrada" || est === "cerrada" || est === "orden_cerrada";
+    const isEntregado = !isCerrada && (est === "entregado" || est === "entregado_con_saldo" || est === "entregado con saldo" || est === "entregado_por_pagar" || est === "entregado por pagar");
+    const isTerminado = !isCerrada && !isEntregado && (est === "terminado" || est === "finalizado" || est === "terminado en taller");
+    const isEnProceso = !isCerrada && !isAnulada && !isEntregado && !isTerminado && (est === "en_proceso" || est === "en proceso" || est === "activo");
+    const isOrdenCreada = !isCerrada && !isAnulada && !isEntregado && !isTerminado && !isEnProceso && (est === "orden creada" || est === "orden_creada");
+    const isPendiente = !isCerrada && !isAnulada && !isEntregado && !isTerminado && !isEnProceso && !isOrdenCreada;
+
+    if (selectedEstadoFilter === "activas") {
+      if (isCerrada || isAnulada) return false;
+    } else if (selectedEstadoFilter === "pendiente") {
+      if (!isPendiente) return false;
+    } else if (selectedEstadoFilter === "orden_creada") {
+      if (!isOrdenCreada) return false;
+    } else if (selectedEstadoFilter === "en_proceso") {
+      if (!isEnProceso) return false;
+    } else if (selectedEstadoFilter === "terminado") {
+      if (!isTerminado) return false;
+    } else if (selectedEstadoFilter === "entregado_por_pagar") {
+      if (!isEntregado) return false;
+    } else if (selectedEstadoFilter === "cerrada") {
+      if (!isCerrada) return false;
+    } else if (selectedEstadoFilter === "anulada") {
+      if (!isAnulada) return false;
+    }
+
     if (selectedDateFilter !== "todos") {
       const todayStr = getLocalDateString(new Date());
       const yesterdayDate = new Date();
@@ -842,6 +887,27 @@ const HojaRecepcionList = () => {
 
           <div className="w-full sm:w-auto">
             <select
+              value={selectedEstadoFilter}
+              onChange={(e) => {
+                setSelectedEstadoFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full sm:w-60 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all text-sm cursor-pointer font-medium"
+            >
+              <option value="activas">Ocultar Cerradas y Anuladas (Activas)</option>
+              <option value="todos">Todos los Estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="orden_creada">Orden Creada</option>
+              <option value="en_proceso">En Proceso</option>
+              <option value="terminado">Terminado en Taller</option>
+              <option value="entregado_por_pagar">Entregado por Pagar</option>
+              <option value="cerrada">Orden Cerrada</option>
+              <option value="anulada">Anulada</option>
+            </select>
+          </div>
+
+          <div className="w-full sm:w-auto">
+            <select
               value={selectedTipoOrden}
               onChange={(e) => {
                 setSelectedTipoOrden(e.target.value);
@@ -921,11 +987,12 @@ const HojaRecepcionList = () => {
             </button>
           </div>
 
-          {(searchTerm || selectedTipoOrden || selectedDateFilter !== "todos") && (
+          {(searchTerm || selectedTipoOrden || selectedDateFilter !== "todos" || selectedEstadoFilter !== "activas") && (
             <button
               onClick={() => {
                 setSearchTerm("");
                 setSelectedTipoOrden("");
+                setSelectedEstadoFilter("activas");
                 setSelectedDateFilter("todos");
                 setCurrentPage(1);
               }}
@@ -938,9 +1005,16 @@ const HojaRecepcionList = () => {
           )}
         </div>
 
-        <div className="mb-2 text-sm text-gray-500 dark:text-gray-400 no-print">
-          Mostrando {filteredHojas.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} -{" "}
-          {Math.min(currentPage * itemsPerPage, filteredHojas.length)} de {filteredHojas.length} registros
+        <div className="mb-2 text-sm text-gray-500 dark:text-gray-400 no-print flex items-center gap-2 flex-wrap">
+          <span>
+            Mostrando {filteredHojas.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} -{" "}
+            {Math.min(currentPage * itemsPerPage, filteredHojas.length)} de {filteredHojas.length} registros
+          </span>
+          {selectedEstadoFilter === "activas" && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-600">
+              Ocultando cerradas y anuladas
+            </span>
+          )}
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
@@ -995,7 +1069,25 @@ const HojaRecepcionList = () => {
                     >
                       <div className="flex flex-col items-center gap-2">
                         <FileText className="h-8 w-8 text-gray-400" />
-                        <p>No se encontraron hojas de recepción</p>
+                        <p>
+                          {searchTerm
+                            ? "No se encontraron resultados para la búsqueda"
+                            : selectedEstadoFilter === "activas"
+                            ? "No se encontraron hojas de recepción activas"
+                            : "No se encontraron hojas de recepción"}
+                        </p>
+                        {selectedEstadoFilter === "activas" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedEstadoFilter("todos");
+                              setCurrentPage(1);
+                            }}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium cursor-pointer"
+                          >
+                            Mostrar todos los estados (incluyendo cerradas y anuladas)
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1218,6 +1310,11 @@ const HojaRecepcionList = () => {
             selectedTipoOrden={
               tiposOrden.find((t) => String(t.id) === selectedTipoOrden)
                 ?.tipo_orden || selectedTipoOrden
+            }
+            selectedEstado={
+              selectedEstadoFilter === "activas"
+                ? "Activas (sin cerradas/anuladas)"
+                : selectedEstadoFilter
             }
           />
         </div>
