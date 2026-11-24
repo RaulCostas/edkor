@@ -39,6 +39,7 @@ import {
     updatePago,
     deletePago,
     getPagos,
+    getComprobantesList,
     type OrdenConSaldo,
     type PagoOrden
 } from '../services/pagoOrdenService';
@@ -119,6 +120,7 @@ const RegistroPagos = () => {
         observacion: '',
         idcomision_tarjeta: '',
         comprobante: '',
+        comprobantes: [] as string[],
     });
 
     useEffect(() => {
@@ -174,6 +176,7 @@ const RegistroPagos = () => {
             observacion: modoInicial === 'total' ? 'Cancelación total de saldo' : 'Abono parcial a cuenta',
             idcomision_tarjeta: '',
             comprobante: '',
+            comprobantes: [],
         });
         setShowModal(true);
     };
@@ -199,6 +202,8 @@ const RegistroPagos = () => {
         setModalidadPago('parcial');
         setShowPagosPreviosEnModal(false);
 
+        const comprobantesList = getComprobantesList(pago.comprobante);
+
         setFormData({
             fecha: getLocalDateString(pago.fecha),
             monto: pago.monto.toString(),
@@ -210,6 +215,7 @@ const RegistroPagos = () => {
             observacion: pago.observacion || '',
             idcomision_tarjeta: pago.idcomision_tarjeta ? pago.idcomision_tarjeta.toString() : '',
             comprobante: pago.comprobante || '',
+            comprobantes: comprobantesList,
         });
         setShowModal(true);
     };
@@ -235,36 +241,51 @@ const RegistroPagos = () => {
     };
 
     const handleComprobanteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = e.target.files ? Array.from(e.target.files) : [];
+        if (files.length === 0) return;
 
-        if (file.size > 15 * 1024 * 1024) {
-            Swal.fire('Archivo muy grande', 'El archivo no debe exceder los 15MB', 'warning');
+        const oversized = files.filter(f => f.size > 15 * 1024 * 1024);
+        if (oversized.length > 0) {
+            Swal.fire('Archivo muy grande', 'Cada archivo no debe exceder los 15MB', 'warning');
             return;
         }
 
         setUploadingComprobante(true);
         try {
-            const filename = await uploadFile(file);
-            setFormData(prev => ({ ...prev, comprobante: filename }));
+            const uploadedFilenames = await Promise.all(files.map(file => uploadFile(file)));
+            setFormData(prev => {
+                const updatedList = [...(prev.comprobantes || []), ...uploadedFilenames];
+                return {
+                    ...prev,
+                    comprobante: updatedList[0] || '',
+                    comprobantes: updatedList
+                };
+            });
             Swal.fire({
                 icon: 'success',
-                title: 'Comprobante cargado',
-                text: 'El archivo se subió correctamente',
+                title: uploadedFilenames.length > 1 ? 'Comprobantes cargados' : 'Comprobante cargado',
+                text: uploadedFilenames.length > 1 ? `Se subieron ${uploadedFilenames.length} archivos correctamente` : 'El archivo se subió correctamente',
                 timer: 1500,
                 showConfirmButton: false,
             });
         } catch (error) {
-            console.error('Error al subir comprobante:', error);
-            Swal.fire('Error', 'No se pudo subir el archivo del comprobante', 'error');
+            console.error('Error al subir comprobante(s):', error);
+            Swal.fire('Error', 'No se pudieron subir los archivos del comprobante', 'error');
         } finally {
             setUploadingComprobante(false);
             e.target.value = '';
         }
     };
 
-    const handleRemoveComprobante = () => {
-        setFormData(prev => ({ ...prev, comprobante: '' }));
+    const handleRemoveComprobante = (indexToRemove: number) => {
+        setFormData(prev => {
+            const updated = (prev.comprobantes || []).filter((_, idx) => idx !== indexToRemove);
+            return {
+                ...prev,
+                comprobante: updated[0] || '',
+                comprobantes: updated
+            };
+        });
     };
 
     const handleDeletePago = async (id: number) => {
@@ -674,6 +695,13 @@ const RegistroPagos = () => {
                 return isNaN(num) ? undefined : num;
             };
 
+            const comprobantesList = (formData.comprobantes || []).filter(Boolean);
+            const comprobanteValue = comprobantesList.length === 0
+                ? undefined
+                : comprobantesList.length === 1
+                    ? comprobantesList[0]
+                    : JSON.stringify(comprobantesList);
+
             const payload = {
                 idorden_trabajo: selectedOrden.id,
                 fecha: formData.fecha,
@@ -687,7 +715,7 @@ const RegistroPagos = () => {
                 idusers: safeInt(user.id),
                 idcomision_tarjeta: safeInt(formData.idcomision_tarjeta),
                 monto_comision: montoComision > 0 ? Number(montoComision.toFixed(2)) : undefined,
-                comprobante: formData.comprobante || undefined,
+                comprobante: comprobanteValue,
             };
 
             let savedPago: PagoOrden;
@@ -1282,18 +1310,23 @@ const RegistroPagos = () => {
                                                 <td className="p-4 text-gray-500 dark:text-gray-400 text-xs italic">
                                                     {pago.observacion || '-'}
                                                 </td>
-                                                <td className="p-4 flex gap-1.5 justify-center">
-                                                    {pago.comprobante && (
-                                                        <a
-                                                            href={`${API_BASE_URL}/files/${pago.comprobante}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="p-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-all flex items-center justify-center"
-                                                            title="Ver Comprobante / Transferencia"
-                                                        >
-                                                            <ExternalLink size={15} />
-                                                        </a>
-                                                    )}
+                                                <td className="p-4 flex flex-wrap gap-1.5 justify-center items-center">
+                                                    {(() => {
+                                                        const comps = getComprobantesList(pago.comprobante);
+                                                        return comps.map((comp, cIdx) => (
+                                                            <a
+                                                                key={cIdx}
+                                                                href={`${API_BASE_URL}/files/${comp}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="p-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-all flex items-center justify-center gap-0.5 text-xs font-semibold"
+                                                                title={`Ver Comprobante ${comps.length > 1 ? `#${cIdx + 1}` : ''} / Transferencia`}
+                                                            >
+                                                                <ExternalLink size={14} />
+                                                                {comps.length > 1 && <span className="text-[10px] leading-none">{cIdx + 1}</span>}
+                                                            </a>
+                                                        ));
+                                                    })()}
                                                     <button
                                                         onClick={() => handleImprimirReciboFromPago(pago)}
                                                         className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
@@ -1692,53 +1725,98 @@ const RegistroPagos = () => {
 
                                 {/* Comprobante de Pago (Transferencia / Imagen o PDF) */}
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                                        Comprobante de Pago (Transferencia / Depósito / Foto o PDF)
-                                    </label>
-                                    {formData.comprobante ? (
-                                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                {formData.comprobante.toLowerCase().endsWith('.pdf') ? (
-                                                    <div className="w-12 h-12 flex-shrink-0 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">
-                                                        <FileText size={24} />
-                                                    </div>
-                                                ) : (
-                                                    <img
-                                                        src={`${API_BASE_URL}/files/${formData.comprobante}`}
-                                                        alt="Comprobante"
-                                                        className="w-12 h-12 flex-shrink-0 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-                                                        onError={(e) => {
-                                                            (e.target as any).style.display = 'none';
-                                                        }}
-                                                    />
-                                                )}
-                                                <div className="overflow-hidden">
-                                                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate max-w-xs">
-                                                        {formData.comprobante}
-                                                    </p>
-                                                    <a
-                                                        href={`${API_BASE_URL}/files/${formData.comprobante}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1 font-medium mt-0.5"
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                            Comprobantes de Pago (Transferencia / Depósito / Foto o PDF)
+                                        </label>
+                                        {formData.comprobantes && formData.comprobantes.length > 0 && (
+                                            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                                                {formData.comprobantes.length} {formData.comprobantes.length === 1 ? 'adjunto' : 'adjuntos'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {formData.comprobantes && formData.comprobantes.length > 0 ? (
+                                        <div className="space-y-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {formData.comprobantes.map((comp, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm"
                                                     >
-                                                        <ExternalLink size={11} /> Ver archivo completo
-                                                    </a>
+                                                        <div className="flex items-center gap-2.5 overflow-hidden">
+                                                            {comp.toLowerCase().endsWith('.pdf') ? (
+                                                                <div className="w-10 h-10 flex-shrink-0 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">
+                                                                    <FileText size={20} />
+                                                                </div>
+                                                            ) : (
+                                                                <img
+                                                                    src={`${API_BASE_URL}/files/${comp}`}
+                                                                    alt={`Comprobante ${idx + 1}`}
+                                                                    className="w-10 h-10 flex-shrink-0 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                                                                    onError={(e) => {
+                                                                        (e.target as any).style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            <div className="overflow-hidden">
+                                                                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[140px]" title={comp}>
+                                                                    {comp}
+                                                                </p>
+                                                                <a
+                                                                    href={`${API_BASE_URL}/files/${comp}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1 font-medium"
+                                                                >
+                                                                    <ExternalLink size={11} /> Ver #{idx + 1}
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveComprobante(idx)}
+                                                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors ml-1.5 cursor-pointer"
+                                                            title="Quitar este comprobante"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Botón para agregar más comprobantes */}
+                                            <div className="relative border border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-500 rounded-lg p-2.5 text-center transition-colors bg-white dark:bg-gray-700/40">
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="image/*,application/pdf"
+                                                    onChange={handleComprobanteUpload}
+                                                    disabled={uploadingComprobante}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                />
+                                                <div className="flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                                    {uploadingComprobante ? (
+                                                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
+                                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                            Subiendo comprobantes...
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                                                                + Adjuntar más comprobantes (Imagen o PDF)
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleRemoveComprobante}
-                                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors ml-2"
-                                                title="Quitar comprobante"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
                                         </div>
                                     ) : (
-                                        <div className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-500 rounded-lg p-3.5 text-center transition-colors bg-white dark:bg-gray-700/50">
+                                        <div className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-500 rounded-lg p-4 text-center transition-colors bg-white dark:bg-gray-700/50">
                                             <input
                                                 type="file"
+                                                multiple
                                                 accept="image/*,application/pdf"
                                                 onChange={handleComprobanteUpload}
                                                 disabled={uploadingComprobante}
@@ -1748,16 +1826,16 @@ const RegistroPagos = () => {
                                                 {uploadingComprobante ? (
                                                     <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 font-medium py-1">
                                                         <RefreshCw className="w-4 h-4 animate-spin" />
-                                                        Subiendo archivo de comprobante...
+                                                        Subiendo archivos de comprobante...
                                                     </div>
                                                 ) : (
                                                     <>
                                                         <Upload className="w-5 h-5 text-gray-400 dark:text-gray-400" />
                                                         <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                            Haga clic o arrastre aquí el comprobante de transferencia (Imagen o PDF)
+                                                            Haga clic o arrastre aquí los comprobantes (Imágenes o PDFs)
                                                         </span>
                                                         <span className="text-[10px] text-gray-400">
-                                                            Soporta JPG, PNG, WEBP o PDF hasta 15MB
+                                                            Soporta múltiples archivos JPG, PNG, WEBP o PDF hasta 15MB c/u
                                                         </span>
                                                     </>
                                                 )}
@@ -1832,17 +1910,22 @@ const RegistroPagos = () => {
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {p.comprobante && (
-                                                            <a
-                                                                href={`${API_BASE_URL}/files/${p.comprobante}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 text-[11px] font-medium"
-                                                                title="Ver Comprobante de Transferencia"
-                                                            >
-                                                                <FileText size={12} /> Comprobante
-                                                            </a>
-                                                        )}
+                                                        {(() => {
+                                                            const comps = getComprobantesList(p.comprobante);
+                                                            return comps.map((comp, cIdx) => (
+                                                                <a
+                                                                    key={cIdx}
+                                                                    href={`${API_BASE_URL}/files/${comp}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 text-[11px] font-medium"
+                                                                    title={`Ver Comprobante ${comps.length > 1 ? `#${cIdx + 1}` : ''}`}
+                                                                >
+                                                                    <FileText size={12} />
+                                                                    <span>Comp{comps.length > 1 ? ` #${cIdx + 1}` : ''}</span>
+                                                                </a>
+                                                            ));
+                                                        })()}
                                                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
                                                             +{Number(p.monto).toFixed(2)} {p.moneda === 'Dólares' ? '$us' : 'Bs'}
                                                         </span>
@@ -2020,17 +2103,22 @@ const RegistroPagos = () => {
                                                     <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                                                         +{Number(pago.monto).toFixed(2)} {pago.moneda === 'Dólares' ? '$us' : 'Bs'}
                                                     </span>
-                                                    {pago.comprobante && (
-                                                        <a
-                                                            href={`${API_BASE_URL}/files/${pago.comprobante}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="p-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg transition-all flex items-center justify-center"
-                                                            title="Ver Comprobante / Transferencia"
-                                                        >
-                                                            <ExternalLink size={14} />
-                                                        </a>
-                                                    )}
+                                                    {(() => {
+                                                        const comps = getComprobantesList(pago.comprobante);
+                                                        return comps.map((comp, cIdx) => (
+                                                            <a
+                                                                key={cIdx}
+                                                                href={`${API_BASE_URL}/files/${comp}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="p-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg transition-all flex items-center justify-center gap-1 text-[11px] font-semibold"
+                                                                title={`Ver Comprobante ${comps.length > 1 ? `#${cIdx + 1}` : ''} / Transferencia`}
+                                                            >
+                                                                <ExternalLink size={14} />
+                                                                {comps.length > 1 && <span>#{cIdx + 1}</span>}
+                                                            </a>
+                                                        ));
+                                                    })()}
                                                     <button
                                                         onClick={() => handleImprimirReciboFromPago(pago, selectedOrdenHistorial)}
                                                         className="p-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg transition-all"

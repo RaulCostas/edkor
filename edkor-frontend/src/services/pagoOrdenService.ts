@@ -84,3 +84,22 @@ export const updatePago = async (
 export const deletePago = async (id: number): Promise<void> => {
   await api.delete(`${ENDPOINT}/${id}`);
 };
+
+export const getComprobantesList = (comprobante?: string | null): string[] => {
+  if (!comprobante || !comprobante.trim()) return [];
+  const trimmed = comprobante.trim();
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).filter(Boolean);
+      }
+    } catch {
+      // fallback
+    }
+  }
+  if (trimmed.includes(",")) {
+    return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return [trimmed];
+};
