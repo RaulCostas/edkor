@@ -214,6 +214,7 @@ export const UtilidadOrdenesMensual = () => {
             { Concepto: 'Costo Compra Repuestos (Bs):', Valor: resumen.costo_repuestos },
             { Concepto: '  - Venta de Repuestos (Bs):', Valor: resumen.ingreso_repuestos },
             { Concepto: 'Trabajos de Terceros (Bs):', Valor: resumen.costo_terceros },
+            { Concepto: 'Pago a Chapistas / Chapería (Bs):', Valor: resumen.costo_chaperia || 0 },
             { Concepto: 'Total Costos Deducidos (Bs):', Valor: resumen.total_costos },
             { Concepto: 'UTILIDAD NETA REAL (Bs):', Valor: resumen.utilidad_neta },
             { Concepto: 'Margen de Ganancia Promedio (%):', Valor: `${resumen.margen_porcentaje}%` },
@@ -235,6 +236,7 @@ export const UtilidadOrdenesMensual = () => {
             'Pago Mecánico (Bs)': o.costo_mecanicos,
             'Costo Repuestos (Bs)': o.costo_repuestos,
             'Terceros (Bs)': o.costo_terceros,
+            'Chapería (Bs)': o.costo_chaperia || 0,
             'Total Costos (Bs)': o.total_costos,
             'Utilidad Neta (Bs)': o.utilidad_neta,
             'Margen (%)': `${o.margen_porcentaje}%`,
@@ -272,6 +274,7 @@ export const UtilidadOrdenesMensual = () => {
             `Bs. ${o.costo_mecanicos.toFixed(2)}`,
             `Bs. ${o.costo_repuestos.toFixed(2)}`,
             `Bs. ${o.costo_terceros.toFixed(2)}`,
+            `Bs. ${(o.costo_chaperia || 0).toFixed(2)}`,
             `Bs. ${o.utilidad_neta.toFixed(2)}`,
             `${o.margen_porcentaje}%`,
         ]);
@@ -298,6 +301,7 @@ export const UtilidadOrdenesMensual = () => {
                     'Pago Mec.',
                     'Costo Rep.',
                     'Terceros',
+                    'Chapería',
                     'Utilidad Neta',
                     'Margen %',
                 ]],
@@ -308,6 +312,7 @@ export const UtilidadOrdenesMensual = () => {
                     { content: `Bs. ${res.costo_mecanicos.toFixed(2)}`, styles: { fontStyle: 'bold' } },
                     { content: `Bs. ${res.costo_repuestos.toFixed(2)}`, styles: { fontStyle: 'bold' } },
                     { content: `Bs. ${res.costo_terceros.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+                    { content: `Bs. ${(res.costo_chaperia || 0).toFixed(2)}`, styles: { fontStyle: 'bold' } },
                     { content: `Bs. ${res.utilidad_neta.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: res.utilidad_neta >= 0 ? [16, 122, 63] : [190, 18, 60] } },
                     { content: `${res.margen_porcentaje}%`, styles: { fontStyle: 'bold' } },
                 ]],
@@ -506,7 +511,7 @@ export const UtilidadOrdenesMensual = () => {
 
             {/* KPI Cards (visual mirroring of UtilidadOrdenModal cards) */}
             {data && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 animate-in fade-in duration-300">
                     {/* 1. Ingreso Total Órdenes (Cliente) */}
                     <div className="bg-blue-50/70 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 shadow-sm transition hover:shadow-md">
                         <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
@@ -566,18 +571,34 @@ export const UtilidadOrdenesMensual = () => {
                     </div>
 
                     {/* 4. Trabajos de Terceros */}
-                    <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 shadow-sm transition hover:shadow-md">
-                        <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                    <div className="bg-purple-50/70 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-700 rounded-2xl p-4 shadow-sm transition hover:shadow-md">
+                        <div className="flex items-center justify-between text-purple-700 dark:text-purple-300 mb-1">
                             <span className="text-xs font-bold uppercase tracking-wider">
-                                Trabajos de Terceros
+                                Trabajos Terceros
                             </span>
                             <ExternalLink size={18} />
                         </div>
-                        <div className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono mt-1">
+                        <div className="text-2xl font-extrabold text-purple-800 dark:text-purple-200 font-mono mt-1">
                             Bs. {data.resumen_general.costo_terceros.toFixed(2)}
                         </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 border-t border-purple-200 dark:border-purple-800/40 pt-1.5">
+                            Costo externo (torno, rectif.)
+                        </div>
+                    </div>
+
+                    {/* 4.1 Pago a Chapistas / Chapería */}
+                    <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 shadow-sm transition hover:shadow-md">
+                        <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                                Pago a Chapistas
+                            </span>
+                            <Wrench size={18} />
+                        </div>
+                        <div className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono mt-1">
+                            Bs. {(data.resumen_general.costo_chaperia || 0).toFixed(2)}
+                        </div>
                         <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 border-t border-indigo-100 dark:border-indigo-900/40 pt-1.5">
-                            Costo externo (torno, alineado, etc.)
+                            Chapería contratista (obra vendida)
                         </div>
                     </div>
 
@@ -668,6 +689,7 @@ export const UtilidadOrdenesMensual = () => {
                                     <th className="p-3.5 text-right">Pago Mec.</th>
                                     <th className="p-3.5 text-right">Costo Rep.</th>
                                     <th className="p-3.5 text-right">Terceros</th>
+                                    <th className="p-3.5 text-right">Chapería</th>
                                     <th className="p-3.5 text-right">Utilidad Neta</th>
                                     <th className="p-3.5 text-center">Margen</th>
                                     <th className="p-3.5 text-center">Estado</th>
@@ -713,8 +735,11 @@ export const UtilidadOrdenesMensual = () => {
                                         <td className="p-3.5 text-right font-mono text-purple-700 dark:text-purple-300 whitespace-nowrap">
                                             Bs. {o.costo_repuestos.toFixed(2)}
                                         </td>
-                                        <td className="p-3.5 text-right font-mono text-indigo-700 dark:text-indigo-300 whitespace-nowrap">
+                                        <td className="p-3.5 text-right font-mono text-purple-700 dark:text-purple-300 whitespace-nowrap">
                                             Bs. {o.costo_terceros.toFixed(2)}
+                                        </td>
+                                        <td className="p-3.5 text-right font-mono text-indigo-700 dark:text-indigo-300 whitespace-nowrap">
+                                            Bs. {(o.costo_chaperia || 0).toFixed(2)}
                                         </td>
                                         <td
                                             className={`p-3.5 text-right font-mono font-bold whitespace-nowrap ${

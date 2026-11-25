@@ -173,9 +173,11 @@ export class DetalleOrdenTrabajoService {
 
             const tiempoVal = Number(detalle.tiempo_estimado ?? detalle.precio_taller?.tiempo_estimado ?? 0);
             const precioHoraVal = Number(detalle.precio_hora ?? detalle.precio_taller?.precio_hora ?? 0);
-            let totalCosto = detalle.total_costo !== undefined && detalle.total_costo !== null && Number(detalle.total_costo) > 0
-                ? Number(detalle.total_costo)
-                : Number((tiempoVal * precioHoraVal).toFixed(2));
+            let totalCosto = detalle.costo_tercero !== undefined && detalle.costo_tercero !== null
+                ? Number(detalle.costo_tercero)
+                : (detalle.total_costo !== undefined && detalle.total_costo !== null
+                    ? Number(detalle.total_costo)
+                    : Number((tiempoVal * precioHoraVal).toFixed(2)));
             const ptId = detalle.precio_taller?.id;
             const ordenId = detalle.orden_trabajo?.id;
             const ptItems = Array.isArray((detalle.precio_taller as any)?.items)
@@ -428,8 +430,10 @@ export class DetalleOrdenTrabajoService {
         }
 
         if (updateDetalleOrdenTrabajoDto.costo_tercero !== undefined) {
-            updateData.costo_tercero = Number(updateDetalleOrdenTrabajoDto.costo_tercero || 0);
-            if (updateData.costo_tercero > 0 && (updateDetalleOrdenTrabajoDto.total_costo === undefined || Number(updateDetalleOrdenTrabajoDto.total_costo) === 0)) {
+            updateData.costo_tercero = Number(updateDetalleOrdenTrabajoDto.costo_tercero ?? 0);
+            if (updateDetalleOrdenTrabajoDto.total_costo !== undefined) {
+                updateData.total_costo = Number(updateDetalleOrdenTrabajoDto.total_costo);
+            } else {
                 updateData.total_costo = updateData.costo_tercero;
             }
         }

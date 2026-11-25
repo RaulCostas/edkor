@@ -29,9 +29,8 @@ const OrdenTrabajoPrintView: React.FC<Props> = ({ orden, detalles = [] }) => {
   const activeDetalles = detalles.filter(d => d.estado_trabajo !== "descartado");
 
   const subTotalCalc = activeDetalles.reduce((acc, d) => {
-    const pUnit = Number(d.precio_unitario || 0);
-    const cant = Number(d.cantidad || 1);
-    return acc + (cant * pUnit);
+    const itemTotal = Number(d.total) > 0 ? Number(d.total) : (Number(d.cantidad || 1) * Number(d.precio_unitario || 0));
+    return acc + Math.round(itemTotal);
   }, 0);
 
   const descuentoNum = Number(orden.descuento || 0);
@@ -198,7 +197,7 @@ const OrdenTrabajoPrintView: React.FC<Props> = ({ orden, detalles = [] }) => {
                     renderedGroups.add(ptId);
                     const groupName = d.precio_taller?.detalle || "Grupo de Mantenimiento";
                     const groupTotal = groupItems!.reduce(
-                      (acc, g) => acc + Number(g.total || Number(g.cantidad || 1) * Number(g.precio_unitario || 0)),
+                      (acc, g) => acc + Math.round(Number(g.total || Number(g.cantidad || 1) * Number(g.precio_unitario || 0))),
                       0
                     );
                     rows.push(
@@ -221,7 +220,7 @@ const OrdenTrabajoPrintView: React.FC<Props> = ({ orden, detalles = [] }) => {
                     : (d.precio_taller?.categoria?.categoria_servicio || d.precio_seguro?.categoria?.categoria_servicio || "SERVICIO");
                   const detalleNombre = d.detalle || d.precio_taller?.detalle || d.precio_seguro?.detalle || d.inventario?.descripcion || "Sin detalle";
                   const pUnit = Number(d.precio_unitario || 0).toFixed(2);
-                  const totalItem = Number(d.total || (Number(d.cantidad || 1) * Number(d.precio_unitario || 0))).toFixed(2);
+                  const totalItem = Math.round(Number(d.total || (Number(d.cantidad || 1) * Number(d.precio_unitario || 0)))).toFixed(2);
 
                   rows.push(
                     <tr key={d.id || idx} className="hover:bg-gray-50/50">
@@ -283,7 +282,7 @@ const OrdenTrabajoPrintView: React.FC<Props> = ({ orden, detalles = [] }) => {
 
       {/* Nota Legal / Disclaimer */}
       <div className="mb-4 text-[9px] text-gray-600 italic border-t border-gray-300 pt-2 leading-relaxed">
-        * Nota: Es posible que en el proceso del trabajo se detecte(n) en algún(os) sistema(s) mecánico(s) y/o eléctricos del vehículo anomalías no contempladas inicialmente. Los repuestos corren por cuenta del cliente.
+        * Nota: El cliente manifiesta su conformidad y autoriza la ejecución de los trabajos, servicios y repuestos detallados en la presente orden de trabajo, aceptando los términos y montos acordados.
       </div>
 
       {/* Firma */}

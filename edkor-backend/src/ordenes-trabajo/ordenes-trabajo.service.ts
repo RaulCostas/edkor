@@ -551,6 +551,7 @@ export class OrdenesTrabajoService {
         let totalPagoMecanicosPendiente = 0;
         let totalCostoRepuestos = 0;
         let totalCostoTerceros = 0;
+        let totalCostoChaperia = 0;
 
         // Identificar qué idprecio_taller son grupos con desglose de sub-trabajos
         const countByPrecioTaller = new Map<number, number>();
@@ -596,20 +597,31 @@ export class OrdenesTrabajoService {
                     : Number(row.pt_total_costo || 0);
 
             const catNombre = String(row.pt_categoria || '').toLowerCase();
+            const esChaperia = catNombre.includes('chaper');
             const esTrabajoTercero =
-                catNombre.includes('tercero') ||
-                catNombre.includes('chaper') ||
-                Number(row.costo_tercero) > 0;
-            const costoTercero = Number(row.costo_tercero) > 0
-                ? Number(row.costo_tercero)
-                : esTrabajoTercero && Number(row.total_costo) > 0
-                ? Number(row.total_costo)
-                : esTrabajoTercero && Number(row.pt_total_costo) > 0
-                ? Number(row.pt_total_costo)
+                !esChaperia &&
+                (catNombre.includes('tercero') || Number(row.costo_tercero) > 0);
+
+            const costoChaperia = esChaperia
+                ? (Number(row.costo_tercero) > 0
+                    ? Number(row.costo_tercero)
+                    : (row.costo_tercero !== null && Number(row.costo_tercero) === 0)
+                    ? 0
+                    : Number(row.total_costo) > 0
+                    ? Number(row.total_costo)
+                    : Number(row.pt_total_costo || 0))
+                : 0;
+
+            const costoTercero = esTrabajoTercero
+                ? (Number(row.costo_tercero) > 0
+                    ? Number(row.costo_tercero)
+                    : Number(row.total_costo) > 0
+                    ? Number(row.total_costo)
+                    : Number(row.pt_total_costo || 0))
                 : 0;
 
             let costoMecanico = 0;
-            if (esTrabajoTercero) {
+            if (esTrabajoTercero || esChaperia) {
                 costoMecanico = 0;
             } else if (row.ta_id) {
                 costoMecanico =
@@ -757,6 +769,31 @@ export class OrdenesTrabajoService {
                     grupo.ingreso_total = Number((grupo.ingreso_total + ingresoTotal).toFixed(2));
                     grupo.precio_unitario = grupo.ingreso_total;
                     grupo.utilidad = Number((grupo.ingreso_total - grupo.costo_mecanico).toFixed(2));
+                } else if (esChaperia) {
+                    const utilidadItem = Number((ingresoTotal - costoChaperia).toFixed(2));
+                    totalCostoChaperia += costoChaperia;
+
+                    servicios.push({
+                        id: detId,
+                        detalle: row.detalle || 'Trabajo de Chapería',
+                        es_grupo: false,
+                        es_tercero: false,
+                        es_chaperia: true,
+                        sub_items: [],
+                        nivel: row.nivel || null,
+                        cantidad,
+                        precio_unitario: precioUnitarioVenta,
+                        ingreso_total: Number(ingresoTotal.toFixed(2)),
+                        mecanico: mecNombre || 'Sin chapista asignado',
+                        tiene_mecanico: Boolean(mecNombre),
+                        tiempo_estimado: 0,
+                        precio_hora: 0,
+                        costo_mecanico: 0,
+                        costo_tercero: 0,
+                        costo_chaperia: costoChaperia,
+                        mecanico_pagado: false,
+                        utilidad: utilidadItem,
+                    });
                 } else if (esTrabajoTercero) {
                     const utilidadItem = Number((ingresoTotal - costoTercero).toFixed(2));
                     totalCostoTerceros += costoTercero;
@@ -766,6 +803,7 @@ export class OrdenesTrabajoService {
                         detalle: row.detalle || 'Trabajo de Terceros',
                         es_grupo: false,
                         es_tercero: true,
+                        es_chaperia: false,
                         sub_items: [],
                         nivel: row.nivel || null,
                         cantidad,
@@ -777,6 +815,7 @@ export class OrdenesTrabajoService {
                         precio_hora: 0,
                         costo_mecanico: 0,
                         costo_tercero: costoTercero,
+                        costo_chaperia: 0,
                         mecanico_pagado: false,
                         utilidad: utilidadItem,
                     });
@@ -794,7 +833,9 @@ export class OrdenesTrabajoService {
                         detalle: row.detalle || 'Trabajo / Servicio',
                         es_grupo: false,
                         es_tercero: false,
+                        es_chaperia: false,
                         costo_tercero: 0,
+                        costo_chaperia: 0,
                         sub_items: [],
                         nivel: row.nivel || null,
                         cantidad,
@@ -886,9 +927,10 @@ export class OrdenesTrabajoService {
         totalPagoMecanicosPendiente = Number(totalPagoMecanicosPendiente.toFixed(2));
         totalCostoRepuestos = Number(totalCostoRepuestos.toFixed(2));
         totalCostoTerceros = Number(totalCostoTerceros.toFixed(2));
+        totalCostoChaperia = Number(totalCostoChaperia.toFixed(2));
 
         const totalCostos = Number(
-            (totalPagoMecanicos + totalCostoRepuestos + totalCostoTerceros + totalComisionesTarjeta).toFixed(2),
+            (totalPagoMecanicos + totalCostoRepuestos + totalCostoTerceros + totalCostoChaperia + totalComisionesTarjeta).toFixed(2),
         );
         const utilidadNeta = Number((ingresoNetoOrden - totalCostos).toFixed(2));
         const margenPorcentaje =
@@ -934,6 +976,7 @@ export class OrdenesTrabajoService {
                 costo_mecanicos_pendiente: totalPagoMecanicosPendiente,
                 costo_repuestos: totalCostoRepuestos,
                 costo_terceros: totalCostoTerceros,
+                costo_chaperia: totalCostoChaperia,
                 comisiones_tarjeta: totalComisionesTarjeta,
                 total_costos: totalCostos,
                 utilidad_neta: utilidadNeta,
@@ -1049,6 +1092,7 @@ export class OrdenesTrabajoService {
         let totalCostoMecanicosPendiente = 0;
         let totalCostoRepuestos = 0;
         let totalCostoTerceros = 0;
+        let totalCostoChaperia = 0;
         let totalComisionesTarjeta = 0;
         let totalCostos = 0;
         let totalUtilidadNeta = 0;
@@ -1069,7 +1113,8 @@ export class OrdenesTrabajoService {
             totalCostoMecanicosPagado += res.costo_mecanicos_pagado;
             totalCostoMecanicosPendiente += res.costo_mecanicos_pendiente;
             totalCostoRepuestos += res.costo_repuestos;
-            totalCostoTerceros += res.costo_terceros;
+            totalCostoTerceros += res.costo_terceros || 0;
+            totalCostoChaperia += res.costo_chaperia || 0;
             totalComisionesTarjeta += res.comisiones_tarjeta;
             totalCostos += res.total_costos;
             totalUtilidadNeta += res.utilidad_neta;
@@ -1101,7 +1146,8 @@ export class OrdenesTrabajoService {
                 costo_mecanicos_pagado: res.costo_mecanicos_pagado,
                 costo_mecanicos_pendiente: res.costo_mecanicos_pendiente,
                 costo_repuestos: res.costo_repuestos,
-                costo_terceros: res.costo_terceros,
+                costo_terceros: res.costo_terceros || 0,
+                costo_chaperia: res.costo_chaperia || 0,
                 total_costos: res.total_costos,
                 utilidad_neta: res.utilidad_neta,
                 margen_porcentaje: res.margen_porcentaje,
@@ -1118,6 +1164,7 @@ export class OrdenesTrabajoService {
         totalCostoMecanicosPendiente = Number(totalCostoMecanicosPendiente.toFixed(2));
         totalCostoRepuestos = Number(totalCostoRepuestos.toFixed(2));
         totalCostoTerceros = Number(totalCostoTerceros.toFixed(2));
+        totalCostoChaperia = Number(totalCostoChaperia.toFixed(2));
         totalComisionesTarjeta = Number(totalComisionesTarjeta.toFixed(2));
         totalCostos = Number(totalCostos.toFixed(2));
         totalUtilidadNeta = Number(totalUtilidadNeta.toFixed(2));
@@ -1144,6 +1191,7 @@ export class OrdenesTrabajoService {
                 costo_mecanicos_pendiente: totalCostoMecanicosPendiente,
                 costo_repuestos: totalCostoRepuestos,
                 costo_terceros: totalCostoTerceros,
+                costo_chaperia: totalCostoChaperia,
                 comisiones_tarjeta: totalComisionesTarjeta,
                 total_costos: totalCostos,
                 utilidad_neta: totalUtilidadNeta,

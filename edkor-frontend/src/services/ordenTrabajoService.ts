@@ -77,6 +77,8 @@ export interface UtilidadServicioItem {
   costo_mecanico: number;
   es_tercero?: boolean;
   costo_tercero?: number;
+  es_chaperia?: boolean;
+  costo_chaperia?: number;
   mecanico_pagado: boolean;
   utilidad: number;
 }
@@ -95,6 +97,8 @@ export interface UtilidadRepuestoItem {
   costo_mecanico: number;
   es_tercero?: boolean;
   costo_tercero?: number;
+  es_chaperia?: boolean;
+  costo_chaperia?: number;
   mecanico_pagado: boolean;
   utilidad: number;
 }
@@ -136,6 +140,7 @@ export interface UtilidadOrdenResponse {
     costo_mecanicos_pendiente: number;
     costo_repuestos: number;
     costo_terceros?: number;
+    costo_chaperia?: number;
     comisiones_tarjeta: number;
     total_costos: number;
     utilidad_neta: number;
@@ -209,6 +214,7 @@ export interface OrdenUtilidadItem {
   costo_mecanicos_pendiente: number;
   costo_repuestos: number;
   costo_terceros: number;
+  costo_chaperia?: number;
   total_costos: number;
   utilidad_neta: number;
   margen_porcentaje: number;
@@ -232,6 +238,7 @@ export interface UtilidadMensualResponse {
     costo_mecanicos_pendiente: number;
     costo_repuestos: number;
     costo_terceros: number;
+    costo_chaperia?: number;
     comisiones_tarjeta: number;
     total_costos: number;
     utilidad_neta: number;

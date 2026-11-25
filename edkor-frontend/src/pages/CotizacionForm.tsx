@@ -78,7 +78,7 @@ const CotizacionForm = () => {
 
     const handleTotalChange = useCallback((total: number) => {
         setFormData(prev => {
-            const roundedTotal = Number(Number(total || 0).toFixed(2));
+            const roundedTotal = Math.round(Number(total || 0));
             if (prev.sub_total !== roundedTotal) {
                 return { ...prev, sub_total: roundedTotal };
             }
@@ -94,9 +94,9 @@ const CotizacionForm = () => {
     }, [id]);
 
     useEffect(() => {
-        const subTotal = isNaN(Number(formData.sub_total)) ? 0 : Number(formData.sub_total);
+        const subTotal = isNaN(Number(formData.sub_total)) ? 0 : Math.round(Number(formData.sub_total));
         const descuento = isNaN(Number(formData.descuento)) ? 0 : Number(formData.descuento);
-        const newTotal = Number(Math.max(0, subTotal - descuento).toFixed(2));
+        const newTotal = Math.round(Math.max(0, subTotal - descuento));
 
         if (formData.total !== newTotal) {
             setFormData(prev => ({ ...prev, total: newTotal }));

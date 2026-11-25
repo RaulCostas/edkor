@@ -109,7 +109,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         precio_hora: 0,
         total_costo: 0,
         costo_tercero: 0,
-        cantidad: 1,
+        cantidad: 1 as number | string,
         precio_unitario: 0,
         nivel: '',
         detalle: '',
@@ -150,7 +150,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         total_costo: 0,
         costo_tercero: 0,
         detalle: '',
-        cantidad: 1,
+        cantidad: 1 as number | string,
         precio_unitario: 0,
         nivel: '',
         observaciones: ''
@@ -232,8 +232,8 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         if (onTotalChange) {
             const total = detalles
                 .filter(d => d.estado_trabajo !== 'descartado')
-                .reduce((sum, d) => sum + Number(d.total), 0);
-            onTotalChange(Number(total.toFixed(2)));
+                .reduce((sum, d) => sum + Math.round(Number(d.total || (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))), 0);
+            onTotalChange(Math.round(total));
         }
     }, [detalles, onTotalChange]);
 
@@ -517,7 +517,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const normItems = normalizeItems(selectedPrecio.items);
         if (normItems.length === 0) return false;
 
-        const cant = formData.cantidad || 1;
+        const cant = Math.max(0.01, parseFloat(String(formData.cantidad)) || 1);
         const esTercero = isCategoriaTercero(selectedPrecio);
         const esChaperia = isCategoriaChaperia(selectedPrecio);
         const esExternoOObra = esTercero || esChaperia;
@@ -546,7 +546,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                     total_costo: isFirstOfGroup ? totalCostoCalc : 0,
                     cantidad: cant,
                     precio_unitario: precioUnit,
-                    total: cant * precioUnit,
+                    total: Math.round(cant * precioUnit),
                     detalle: item.detalle,
                     observaciones: formData.observaciones || undefined,
                     precio_taller: selectedPrecio
@@ -591,7 +591,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                         total_costo: isFirstOfGroup ? totalCostoCalc : 0,
                         cantidad: cant,
                         precio_unitario: precioUnit,
-                        total: cant * precioUnit,
+                        total: Math.round(cant * precioUnit),
                         detalle: item.detalle,
                         observaciones: formData.observaciones || undefined,
                         idusuario: user?.id ? Number(user.id) : undefined
@@ -910,7 +910,9 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             return;
         }
 
-        const total = formData.cantidad * formData.precio_unitario;
+        const cantNum = Math.max(0.01, parseFloat(String(formData.cantidad)) || 1);
+        const puNum = Number(formData.precio_unitario || 0);
+        const total = Math.round(cantNum * puNum);
         const tiempoVal = formData.tiempo_estimado !== '' && formData.tiempo_estimado !== undefined ? Number(formData.tiempo_estimado) : 0;
         const precioHoraVal = formData.precio_hora !== undefined && formData.precio_hora !== null ? Number(formData.precio_hora) : 0;
         const totalCostoCalc = esExternoOObra ? costoTerceroVal : Number((tiempoVal * precioHoraVal).toFixed(2));
@@ -926,8 +928,8 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             precio_hora: precioHoraVal,
             costo_tercero: costoTerceroVal,
             total_costo: totalCostoCalc,
-            cantidad: formData.cantidad,
-            precio_unitario: formData.precio_unitario,
+            cantidad: cantNum,
+            precio_unitario: puNum,
             total,
             nivel: formData.nivel || undefined,
             detalle: formData.detalle || undefined,
@@ -1089,9 +1091,11 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const esExternoOObra = esTercero || esChaperia;
         const tiempoVal = detalle.tiempo_estimado ?? detalle.precio_taller?.tiempo_estimado ?? '';
         const precioHoraVal = Number(detalle.precio_hora ?? detalle.precio_taller?.precio_hora ?? 0);
-        const costoTerceroVal = detalle.costo_tercero !== undefined && detalle.costo_tercero !== null && Number(detalle.costo_tercero) > 0
+        const costoTerceroVal = detalle.costo_tercero !== undefined && detalle.costo_tercero !== null
             ? Number(detalle.costo_tercero)
-            : (esExternoOObra ? (Number(detalle.total_costo || 0) > 0 ? Number(detalle.total_costo) : Number(ptFound?.total_costo || 0)) : 0);
+            : (detalle.total_costo !== undefined && detalle.total_costo !== null && esExternoOObra
+                ? Number(detalle.total_costo)
+                : (esExternoOObra ? Number(ptFound?.total_costo || 0) : 0));
         const costoCalc = esExternoOObra
             ? costoTerceroVal
             : Number(detalle.total_costo ?? (Number(tiempoVal || 0) * precioHoraVal));
@@ -1142,10 +1146,10 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const esTercero = isCategoriaTercero(ptFound, editingDetalleMain);
         const esChaperia = isCategoriaChaperia(ptFound, editingDetalleMain);
         const esExternoOObra = esTercero || esChaperia;
-        const costoTerceroVal = esExternoOObra ? Number(editForm.costo_tercero || 0) : 0;
+        const costoTerceroVal = esExternoOObra ? Number(editForm.costo_tercero ?? 0) : 0;
         const isEditingInv = Boolean(editingDetalleMain.id_inventario || editingDetalleMain.inventario);
-        const cantidadFinal = isEditingInv ? Number(editingDetalleMain.cantidad || 1) : editForm.cantidad;
-        const total = cantidadFinal * editForm.precio_unitario;
+        const cantidadFinal = isEditingInv ? Number(editingDetalleMain.cantidad || 1) : Math.max(0.01, parseFloat(String(editForm.cantidad)) || 1);
+        const total = Math.round(Number(cantidadFinal) * Number(editForm.precio_unitario || 0));
         const tiempoNum = Number(editForm.tiempo_estimado || 0);
         const precioHoraNum = Number(editForm.precio_hora || 0);
         const invTarget = (editForm.id_inventario ? inventarios.find(i => Number(i.id) === Number(editForm.id_inventario)) : undefined) || editingDetalleMain.inventario;
@@ -1364,15 +1368,14 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                 });
 
                 const updatedDetalles = detalles.map((d, i) => i === index ? { ...d, estado_trabajo: newEstado } : d);
-                const newSubTotal = Number(
+                const newSubTotal = Math.round(
                     updatedDetalles
                         .filter(d => d.estado_trabajo !== 'descartado')
-                        .reduce((sum, d) => sum + Number(d.total), 0)
-                        .toFixed(2)
+                        .reduce((sum, d) => sum + Math.round(Number(d.total || (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))), 0)
                 );
 
                 const currentDescuento = Number(orden?.descuento || 0);
-                const newTotal = Number(Math.max(0, newSubTotal - currentDescuento).toFixed(2));
+                const newTotal = Math.round(Math.max(0, newSubTotal - currentDescuento));
 
                 try {
                     await updateOrdenTrabajo(Number(activeId), {
@@ -2158,11 +2161,24 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     <Hash size={18} className="text-gray-400" />
                                                 </div>
                                                 <input
-                                                    type="number"
-                                                    step="any"
-                                                    min="0.01"
-                                                    value={formData.cantidad}
-                                                    onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0 })}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={formData.cantidad ?? ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(',', '.');
+                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                            setFormData(prev => ({ ...prev, cantidad: val }));
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        const raw = String(formData.cantidad).trim();
+                                                        if (raw === '' || raw === '.') {
+                                                            setFormData(prev => ({ ...prev, cantidad: 1 }));
+                                                        } else {
+                                                            const num = parseFloat(raw);
+                                                            setFormData(prev => ({ ...prev, cantidad: isNaN(num) || num <= 0 ? 1 : num }));
+                                                        }
+                                                    }}
                                                     required
                                                     className="w-full pl-8 pr-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
                                                 />
@@ -2205,7 +2221,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 <input
                                                     type="text"
                                                     readOnly
-                                                    value={(Number(formData.cantidad || 0) * Number(formData.precio_unitario || 0)).toFixed(2)}
+                                                    value={Math.round((parseFloat(String(formData.cantidad)) || 0) * (Number(formData.precio_unitario) || 0)).toFixed(2)}
                                                     className="w-full pl-8 pr-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold cursor-not-allowed text-sm"
                                                 />
                                             </div>
@@ -2514,11 +2530,24 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     <Hash size={18} className="text-gray-400" />
                                                 </div>
                                                 <input
-                                                    type="number"
-                                                    step="any"
-                                                    min="0.01"
-                                                    value={formData.cantidad}
-                                                    onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0 })}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={formData.cantidad ?? ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(',', '.');
+                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                            setFormData(prev => ({ ...prev, cantidad: val }));
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        const raw = String(formData.cantidad).trim();
+                                                        if (raw === '' || raw === '.') {
+                                                            setFormData(prev => ({ ...prev, cantidad: 1 }));
+                                                        } else {
+                                                            const num = parseFloat(raw);
+                                                            setFormData(prev => ({ ...prev, cantidad: isNaN(num) || num <= 0 ? 1 : num }));
+                                                        }
+                                                    }}
                                                     required
                                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
                                                 />
@@ -2561,7 +2590,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 <input
                                                     type="text"
                                                     readOnly
-                                                    value={(Number(formData.cantidad || 0) * Number(formData.precio_unitario || 0)).toFixed(2)}
+                                                    value={Math.round((parseFloat(String(formData.cantidad)) || 0) * (Number(formData.precio_unitario) || 0)).toFixed(2)}
                                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold cursor-not-allowed text-sm"
                                                 />
                                             </div>
@@ -2846,7 +2875,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 )}
                                             </td>
                                             <td className={`p-3 font-bold ${isDescartado ? 'line-through text-red-400 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
-                                                {Number(detalle.total).toFixed(2)}
+                                                {Math.round(Number(detalle.total || (Number(detalle.cantidad || 0) * Number(detalle.precio_unitario || 0)))).toFixed(2)}
                                             </td>
                                             <td className="p-3 text-sm">
                                                 {!esRepuesto ? (
@@ -3183,7 +3212,9 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 onChange={(val) => {
                                                     const precio = preciosTaller.find(p => String(p.id) === String(val));
                                                     const esTercero = isCategoriaTercero(precio);
-                                                    const costoTerceroVal = esTercero ? (precio?.total_costo ? Number(precio.total_costo) : 0) : 0;
+                                                    const esChaperia = isCategoriaChaperia(precio);
+                                                    const esExternoOObra = esTercero || esChaperia;
+                                                    const costoTerceroVal = esExternoOObra ? (precio?.total_costo ? Number(precio.total_costo) : 0) : 0;
                                                     setEditForm({
                                                         ...editForm,
                                                         idprecio_taller: String(val || ''),
@@ -3191,10 +3222,10 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                         id_inventario: '',
                                                         detalle: precio ? precio.detalle : editForm.detalle,
                                                         precio_unitario: precio ? Number(precio.precio) : editForm.precio_unitario,
-                                                        tiempo_estimado: esTercero ? '' : (precio?.tiempo_estimado || editForm.tiempo_estimado),
-                                                        precio_hora: esTercero ? 0 : (precio?.precio_hora ? Number(precio.precio_hora) : editForm.precio_hora),
+                                                        tiempo_estimado: esExternoOObra ? '' : (precio?.tiempo_estimado || editForm.tiempo_estimado),
+                                                        precio_hora: esExternoOObra ? 0 : (precio?.precio_hora ? Number(precio.precio_hora) : editForm.precio_hora),
                                                         costo_tercero: costoTerceroVal,
-                                                        total_costo: esTercero ? costoTerceroVal : (precio?.total_costo ? Number(precio.total_costo) : editForm.total_costo)
+                                                        total_costo: esExternoOObra ? costoTerceroVal : (precio?.total_costo ? Number(precio.total_costo) : editForm.total_costo)
                                                     });
                                                 }}
                                                 placeholder="Seleccione trabajo..."
@@ -3383,11 +3414,13 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     min="0"
                                                     value={editForm.costo_tercero}
                                                     onChange={(e) => {
-                                                        const val = parseFloat(e.target.value) || 0;
+                                                        const raw = e.target.value;
+                                                        const val = raw === '' ? 0 : parseFloat(raw);
+                                                        const numVal = isNaN(val) ? 0 : val;
                                                         setEditForm(prev => ({
                                                             ...prev,
-                                                            costo_tercero: val,
-                                                            total_costo: val
+                                                            costo_tercero: numVal,
+                                                            total_costo: numVal
                                                         }));
                                                     }}
                                                     className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-purple-400 dark:border-purple-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -3430,11 +3463,13 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                         min="0"
                                                         value={editForm.costo_tercero}
                                                         onChange={(e) => {
-                                                            const val = parseFloat(e.target.value) || 0;
+                                                            const raw = e.target.value;
+                                                            const val = raw === '' ? 0 : parseFloat(raw);
+                                                            const numVal = isNaN(val) ? 0 : val;
                                                             setEditForm(prev => ({
                                                                 ...prev,
-                                                                costo_tercero: val,
-                                                                total_costo: val
+                                                                costo_tercero: numVal,
+                                                                total_costo: numVal
                                                             }));
                                                         }}
                                                         className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-indigo-400 dark:border-indigo-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -3597,15 +3632,27 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                             <div className="relative">
                                                 <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                                                 <input
-                                                    type="number"
-                                                    step="any"
-                                                    min="0.01"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     readOnly={isCantidadBloqueada}
                                                     disabled={isCantidadBloqueada}
-                                                    value={editForm.cantidad}
+                                                    value={editForm.cantidad ?? ''}
                                                     onChange={(e) => {
                                                         if (isCantidadBloqueada) return;
-                                                        setEditForm({ ...editForm, cantidad: parseFloat(e.target.value) || 0 });
+                                                        const val = e.target.value.replace(',', '.');
+                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                            setEditForm(prev => ({ ...prev, cantidad: val }));
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (isCantidadBloqueada) return;
+                                                        const raw = String(editForm.cantidad).trim();
+                                                        if (raw === '' || raw === '.') {
+                                                            setEditForm(prev => ({ ...prev, cantidad: 1 }));
+                                                        } else {
+                                                            const num = parseFloat(raw);
+                                                            setEditForm(prev => ({ ...prev, cantidad: isNaN(num) || num <= 0 ? 1 : num }));
+                                                        }
                                                     }}
                                                     title={isCantidadBloqueada ? "Cantidad asignada por Almacén (bloqueada)" : undefined}
                                                     className={`w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm transition-colors ${
@@ -3645,7 +3692,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                 <input
                                                     type="text"
                                                     readOnly
-                                                    value={(Number(editForm.cantidad || 0) * Number(editForm.precio_unitario || 0)).toFixed(2)}
+                                                    value={Math.round((parseFloat(String(editForm.cantidad)) || 0) * (Number(editForm.precio_unitario) || 0)).toFixed(2)}
                                                     className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold cursor-not-allowed text-sm"
                                                 />
                                             </div>
@@ -3681,7 +3728,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     Total: <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
-                                        {orden?.moneda === 'bolivianos' ? 'Bs' : '$'} {(editForm.cantidad * editForm.precio_unitario).toFixed(2)}
+                                        {orden?.moneda === 'bolivianos' ? 'Bs' : '$'} {Math.round((parseFloat(String(editForm.cantidad)) || 0) * (Number(editForm.precio_unitario) || 0)).toFixed(2)}
                                     </span>
                                 </p>
                             </div>

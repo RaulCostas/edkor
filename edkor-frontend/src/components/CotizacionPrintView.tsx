@@ -28,9 +28,8 @@ const CotizacionPrintView: React.FC<Props> = ({ cotizacion }) => {
   const activeDetalles = detalles.filter(d => d.estado_trabajo !== "descartado");
 
   const subTotalCalc = activeDetalles.reduce((acc, d) => {
-    const pUnit = Number(d.precio_unitario || 0);
-    const cant = Number(d.cantidad || 1);
-    return acc + (cant * pUnit);
+    const itemTotal = Number(d.total) > 0 ? Number(d.total) : (Number(d.cantidad || 1) * Number(d.precio_unitario || 0));
+    return acc + Math.round(itemTotal);
   }, 0);
 
   const descuentoNum = Number(cotizacion.descuento || 0);
@@ -169,7 +168,7 @@ const CotizacionPrintView: React.FC<Props> = ({ cotizacion }) => {
                   : (d.precio_taller?.categoria?.categoria_servicio || d.precio_seguro?.categoria?.categoria_servicio || "SERVICIO");
                 const detalleNombre = d.detalle || d.precio_taller?.detalle || d.precio_seguro?.detalle || d.inventario?.descripcion || "Sin detalle";
                 const pUnit = Number(d.precio_unitario || 0).toFixed(2);
-                const totalItem = Number(d.total || (Number(d.cantidad || 1) * Number(d.precio_unitario || 0))).toFixed(2);
+                const totalItem = Math.round(Number(d.total || (Number(d.cantidad || 1) * Number(d.precio_unitario || 0)))).toFixed(2);
 
                 return (
                   <tr key={d.id || idx} className="hover:bg-gray-50/50">
@@ -226,7 +225,7 @@ const CotizacionPrintView: React.FC<Props> = ({ cotizacion }) => {
 
       {/* Nota Legal / Disclaimer */}
       <div className="mb-4 text-[9px] text-gray-600 italic border-t border-gray-300 pt-2 leading-relaxed">
-        * Nota: La presente cotización tiene una validez de 15 días hábiles a partir de la fecha de emisión. En caso de detectarse anomalías o averías adicionales durante el desmontaje o ejecución de los trabajos, las mismas serán comunicadas previamente para su aprobación. Los repuestos corren por cuenta del cliente.
+        * Nota: La presente cotización tiene una validez de 4 días hábiles a partir de la fecha de emisión. La presente proforma es una estimación basada en la inspección realizada. Durante el proceso de desmontaje y reparación podrían identificarse daños ocultos o adicionales que no fueron visibles en la evaluación inicial, por lo que el costo de repuestos y/o mano de obra podría variar. Cualquier cambio será informado al cliente para su aprobación antes de realizar trabajos adicionales.
       </div>
 
       {/* Firmas */}

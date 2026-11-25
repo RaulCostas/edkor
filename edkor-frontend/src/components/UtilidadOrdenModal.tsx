@@ -118,129 +118,160 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
           ) : data ? (
             <>
               {/* KPI Summary Cards */}
-              <div className={`grid grid-cols-1 sm:grid-cols-2 ${Boolean(data.resumen.costo_terceros && data.resumen.costo_terceros > 0) ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3.5`}>
-                {/* 1. Total Cobrado al Cliente */}
-                <div className="bg-blue-50/70 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3.5">
-                  <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wide">
-                      Ingreso Orden (Cliente)
-                    </span>
-                    <DollarSign size={16} />
-                  </div>
-                  <div className="text-xl font-extrabold text-gray-900 dark:text-white font-mono">
-                    {sym} {data.resumen.ingreso_neto_orden.toFixed(2)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
-                    <span>Subtotal: {sym} {data.resumen.sub_total.toFixed(2)}</span>
-                    {data.resumen.descuento > 0 && (
-                      <span className="text-amber-600 dark:text-amber-400 font-medium">
-                        Desc: -{sym} {data.resumen.descuento.toFixed(2)}
-                      </span>
+              {(() => {
+                const tieneTerceros = Boolean(data.resumen.costo_terceros && data.resumen.costo_terceros > 0);
+                const tieneChaperia = Boolean(data.resumen.costo_chaperia && data.resumen.costo_chaperia > 0);
+                const extraCards = (tieneTerceros ? 1 : 0) + (tieneChaperia ? 1 : 0);
+                const gridColsClass = extraCards === 2 
+                  ? 'lg:grid-cols-6' 
+                  : extraCards === 1 
+                  ? 'lg:grid-cols-5' 
+                  : 'lg:grid-cols-4';
+
+                return (
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridColsClass} gap-3.5`}>
+                    {/* 1. Total Cobrado al Cliente */}
+                    <div className="bg-blue-50/70 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3.5">
+                      <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wide">
+                          Ingreso Orden (Cliente)
+                        </span>
+                        <DollarSign size={16} />
+                      </div>
+                      <div className="text-xl font-extrabold text-gray-900 dark:text-white font-mono">
+                        {sym} {data.resumen.ingreso_neto_orden.toFixed(2)}
+                      </div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
+                        <span>Subtotal: {sym} {data.resumen.sub_total.toFixed(2)}</span>
+                        {data.resumen.descuento > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">
+                            Desc: -{sym} {data.resumen.descuento.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Pago a Mecánicos */}
+                    <div className="bg-amber-50/70 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3.5">
+                      <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wide">
+                          Pago a Mecánicos
+                        </span>
+                        <Wrench size={16} />
+                      </div>
+                      <div className="text-xl font-extrabold text-amber-700 dark:text-amber-300 font-mono">
+                        {sym} {data.resumen.costo_mecanicos.toFixed(2)}
+                      </div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          Pagado: {sym} {data.resumen.costo_mecanicos_pagado.toFixed(2)}
+                        </span>
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                          Pend.: {sym} {data.resumen.costo_mecanicos_pendiente.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 3. Costo Compra Repuestos */}
+                    <div className="bg-purple-50/70 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-3.5">
+                      <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wide">
+                          Costo Compra Repuestos
+                        </span>
+                        <Package size={16} />
+                      </div>
+                      <div className="text-xl font-extrabold text-purple-700 dark:text-purple-300 font-mono">
+                        {sym} {data.resumen.costo_repuestos.toFixed(2)}
+                      </div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                        Precio venta repuestos: {sym}{" "}
+                        {data.resumen.ingreso_repuestos.toFixed(2)}
+                      </div>
+                    </div>
+
+                    {/* 3.1 Costo Trabajos de Terceros */}
+                    {tieneTerceros && (
+                      <div className="bg-purple-50/70 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-700 rounded-xl p-3.5">
+                        <div className="flex items-center justify-between text-purple-700 dark:text-purple-300 mb-1">
+                          <span className="text-xs font-bold uppercase tracking-wide">
+                            Trabajos de Terceros
+                          </span>
+                          <ExternalLink size={16} />
+                        </div>
+                        <div className="text-xl font-extrabold text-purple-800 dark:text-purple-200 font-mono">
+                          {sym} {data.resumen.costo_terceros?.toFixed(2)}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                          Costo externo (torno, rectif., etc.)
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </div>
 
-                {/* 2. Pago a Mecánicos */}
-                <div className="bg-amber-50/70 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3.5">
-                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wide">
-                      Pago a Mecánicos
-                    </span>
-                    <Wrench size={16} />
-                  </div>
-                  <div className="text-xl font-extrabold text-amber-700 dark:text-amber-300 font-mono">
-                    {sym} {data.resumen.costo_mecanicos.toFixed(2)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      Pagado: {sym} {data.resumen.costo_mecanicos_pagado.toFixed(2)}
-                    </span>
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      Pend.: {sym} {data.resumen.costo_mecanicos_pendiente.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                    {/* 3.2 Pago a Chapistas / Chapería */}
+                    {tieneChaperia && (
+                      <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3.5">
+                        <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                          <span className="text-xs font-bold uppercase tracking-wide">
+                            Pago a Chapistas
+                          </span>
+                          <Wrench size={16} />
+                        </div>
+                        <div className="text-xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono">
+                          {sym} {data.resumen.costo_chaperia?.toFixed(2)}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                          Chapería contratista (obra vendida)
+                        </div>
+                      </div>
+                    )}
 
-                {/* 3. Costo Compra Repuestos */}
-                <div className="bg-purple-50/70 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-3.5">
-                  <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wide">
-                      Costo Compra Repuestos
-                    </span>
-                    <Package size={16} />
-                  </div>
-                  <div className="text-xl font-extrabold text-purple-700 dark:text-purple-300 font-mono">
-                    {sym} {data.resumen.costo_repuestos.toFixed(2)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                    Precio venta repuestos: {sym}{" "}
-                    {data.resumen.ingreso_repuestos.toFixed(2)}
-                  </div>
-                </div>
-
-                {/* 3.1 Costo Trabajos de Terceros / Chapería */}
-                {Boolean(data.resumen.costo_terceros && data.resumen.costo_terceros > 0) && (
-                  <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3.5">
-                    <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
-                      <span className="text-xs font-bold uppercase tracking-wide">
-                        Terceros / Chapería
-                      </span>
-                      <ExternalLink size={16} />
-                    </div>
-                    <div className="text-xl font-extrabold text-indigo-700 dark:text-indigo-300 font-mono">
-                      {sym} {data.resumen.costo_terceros?.toFixed(2)}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                      Costo externo o contratista (obra vendida)
-                    </div>
-                  </div>
-                )}
-
-                {/* 4. Utilidad Neta */}
-                <div
-                  className={`rounded-xl p-3.5 border ${
-                    data.resumen.utilidad_neta >= 0
-                      ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700"
-                      : "bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700"
-                  }`}
-                >
-                  <div
-                    className={`flex items-center justify-between mb-1 ${
-                      data.resumen.utilidad_neta >= 0
-                        ? "text-emerald-700 dark:text-emerald-300"
-                        : "text-red-700 dark:text-red-300"
-                    }`}
-                  >
-                    <span className="text-xs font-bold uppercase tracking-wide">
-                      Utilidad Neta Real
-                    </span>
-                    <TrendingUp size={16} />
-                  </div>
-                  <div
-                    className={`text-xl font-extrabold font-mono ${
-                      data.resumen.utilidad_neta >= 0
-                        ? "text-emerald-700 dark:text-emerald-300"
-                        : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {sym} {data.resumen.utilidad_neta.toFixed(2)}
-                  </div>
-                  <div className="text-[11px] mt-1 flex items-center justify-between">
-                    <span className="text-gray-600 dark:text-gray-300 font-medium">
-                      Margen de ganancia:
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full font-bold ${
+                    {/* 4. Utilidad Neta */}
+                    <div
+                      className={`rounded-xl p-3.5 border ${
                         data.resumen.utilidad_neta >= 0
-                          ? "bg-emerald-200/80 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-200"
-                          : "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200"
+                          ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700"
+                          : "bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700"
                       }`}
                     >
-                      {data.resumen.margen_porcentaje}%
-                    </span>
+                      <div
+                        className={`flex items-center justify-between mb-1 ${
+                          data.resumen.utilidad_neta >= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        <span className="text-xs font-bold uppercase tracking-wide">
+                          Utilidad Neta Real
+                        </span>
+                        <TrendingUp size={16} />
+                      </div>
+                      <div
+                        className={`text-xl font-extrabold font-mono ${
+                          data.resumen.utilidad_neta >= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {sym} {data.resumen.utilidad_neta.toFixed(2)}
+                      </div>
+                      <div className="text-[11px] mt-1 flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-300 font-medium">
+                          Margen de ganancia:
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold ${
+                            data.resumen.utilidad_neta >= 0
+                              ? "bg-emerald-200/80 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-200"
+                              : "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200"
+                          }`}
+                        >
+                          {data.resumen.margen_porcentaje}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Sección 1: Trabajos / Mano de Obra y Pago al Mecánico */}
               <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-3.5 border border-gray-200 dark:border-gray-700">
@@ -256,7 +287,10 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                       {sym}{" "}
                       {(
                         data.resumen.ingreso_servicios -
-                        data.servicios.reduce((a, s) => a + s.costo_mecanico, 0)
+                        data.servicios.reduce(
+                          (a, s) => a + (s.costo_mecanico || 0) + (s.costo_tercero || 0) + (s.costo_chaperia || 0),
+                          0
+                        )
                       ).toFixed(2)}
                     </strong>
                   </span>
@@ -293,6 +327,11 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                             <td className="py-2 px-3 font-medium text-gray-800 dark:text-gray-200">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span>{srv.detalle}</span>
+                                {srv.es_chaperia && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                    <Wrench size={10} /> Chapería
+                                  </span>
+                                )}
                                 {srv.es_tercero && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                                     <ExternalLink size={10} /> Terceros
@@ -326,16 +365,20 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                               )}
                             </td>
                             <td className="py-2 px-3 text-gray-700 dark:text-gray-300">
-                              {srv.es_tercero ? (
+                              {srv.es_chaperia ? (
                                 srv.tiene_mecanico ? (
                                   <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
-                                    <Wrench size={12} /> {srv.mecanico} (Chapista/Contratista)
+                                    <Wrench size={12} /> {srv.mecanico} (Chapista)
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
-                                    Trabajo Externo / Tercero
+                                  <span className="italic text-gray-400">
+                                    Sin chapista asignado
                                   </span>
                                 )
+                              ) : srv.es_tercero ? (
+                                <span className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
+                                  <ExternalLink size={12} /> Trabajo Externo / Tercero
+                                </span>
                               ) : srv.tiene_mecanico ? (
                                 <span className="font-medium">{srv.mecanico}</span>
                               ) : (
@@ -345,7 +388,11 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                               )}
                             </td>
                             <td className="py-2 px-3 text-center font-mono text-gray-600 dark:text-gray-400">
-                              {srv.es_tercero ? (
+                              {srv.es_chaperia ? (
+                                <span className="text-indigo-600 dark:text-indigo-400 font-semibold text-[11px]">
+                                  Obra Vendida
+                                </span>
+                              ) : srv.es_tercero ? (
                                 <span className="text-gray-400 italic">Externo</span>
                               ) : (srv.tiempo_estimado > 0 || srv.precio_hora > 0) ? (
                                 <div className="flex flex-col items-center">
@@ -365,11 +412,30 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                             <td className="py-2 px-3 text-right font-mono font-semibold text-gray-900 dark:text-white">
                               {sym} {srv.ingreso_total.toFixed(2)}
                             </td>
-                            <td className={`py-2 px-3 text-right font-mono font-semibold ${srv.es_tercero ? 'text-purple-600 dark:text-purple-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                              {sym} {(srv.costo_tercero || srv.costo_mecanico || 0).toFixed(2)}
+                            <td
+                              className={`py-2 px-3 text-right font-mono font-semibold ${
+                                srv.es_chaperia
+                                  ? "text-indigo-600 dark:text-indigo-400"
+                                  : srv.es_tercero
+                                  ? "text-purple-600 dark:text-purple-400"
+                                  : "text-amber-600 dark:text-amber-400"
+                              }`}
+                            >
+                              {sym}{" "}
+                              {(
+                                (srv.es_chaperia
+                                  ? srv.costo_chaperia
+                                  : srv.es_tercero
+                                  ? srv.costo_tercero
+                                  : srv.costo_mecanico) || 0
+                              ).toFixed(2)}
                             </td>
                             <td className="py-2 px-3 text-center">
-                              {srv.es_tercero ? (
+                              {srv.es_chaperia ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                  Obra Vendida
+                                </span>
+                              ) : srv.es_tercero ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                                   Costo Tercero
                                 </span>
