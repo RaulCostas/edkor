@@ -13,6 +13,7 @@ import { StandardExportToolbar } from '../components/common/StandardExportToolba
 import { StandardPrintHeader, StandardPrintFooter } from '../components/common/StandardPrintHeader';
 import ManualModal, { type ManualSection } from '../components/ManualModal';
 import { API_BASE_URL } from '../config';
+import { getComprobantesList } from '../utils/comprobanteUtils';
 
 // Define Interface for PagoPedido since it might not be in a shared type file yet
 interface PagoPedido {
@@ -417,16 +418,29 @@ const ProveedoresPagos = () => {
                                                     {pago.forma_pago?.forma_pago}
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        {pago.imagen && (
-                                                            <button
-                                                                onClick={() => setPreviewImage(`${API_BASE_URL}/files/${pago.imagen}`)}
-                                                                className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
-                                                                title="Ver Comprobante / Factura"
-                                                            >
-                                                                <ImageIcon size={16} />
-                                                            </button>
-                                                        )}
+                                                    <div className="flex items-center justify-center flex-wrap gap-1.5">
+                                                        {(() => {
+                                                            const comps = getComprobantesList(pago.imagen);
+                                                            return comps.map((comp, cIdx) => (
+                                                                <a
+                                                                    key={cIdx}
+                                                                    href={`${API_BASE_URL}/files/${comp}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => {
+                                                                        if (!comp.toLowerCase().endsWith('.pdf')) {
+                                                                            e.preventDefault();
+                                                                            setPreviewImage(`${API_BASE_URL}/files/${comp}`);
+                                                                        }
+                                                                    }}
+                                                                    className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-1 text-xs font-semibold"
+                                                                    title={`Ver Comprobante ${comps.length > 1 ? `#${cIdx + 1}` : ''} / Factura`}
+                                                                >
+                                                                    <ImageIcon size={16} />
+                                                                    {comps.length > 1 && <span>#{cIdx + 1}</span>}
+                                                                </a>
+                                                            ));
+                                                        })()}
                                                         <button
                                                             onClick={() => pago.material_pedido && handleViewOrder(pago.material_pedido.id)}
                                                             className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
@@ -521,7 +535,11 @@ const ProveedoresPagos = () => {
                             </button>
                         </div>
                         <div className="p-2 flex items-center justify-center max-h-[72vh] overflow-auto">
-                            <img src={previewImage} alt="Comprobante" className="max-w-full max-h-[68vh] object-contain rounded-lg shadow border border-gray-100 dark:border-gray-700" />
+                            {previewImage.toLowerCase().endsWith('.pdf') ? (
+                                <iframe src={previewImage} title="Comprobante PDF" className="w-full h-[68vh] rounded-lg border border-gray-100 dark:border-gray-700" />
+                            ) : (
+                                <img src={previewImage} alt="Comprobante" className="max-w-full max-h-[68vh] object-contain rounded-lg shadow border border-gray-100 dark:border-gray-700" />
+                            )}
                         </div>
                         <div className="pt-3 flex justify-end gap-2 border-t border-gray-100 dark:border-gray-700">
                             <a

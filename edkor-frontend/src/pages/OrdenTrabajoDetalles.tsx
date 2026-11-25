@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, Calendar, DollarSign, Trash2, Edit, Save, X, Hash, Layers, Image as ImageIcon, Upload, Check, Package, User, Clock, CheckCircle, XCircle, RotateCcw, RotateCw, ReceiptText, ExternalLink, KeyRound, AlertCircle, Lock, Calculator } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Calendar, DollarSign, Trash2, Edit, Save, X, Hash, Layers, Image as ImageIcon, Upload, Check, Package, User, Clock, CheckCircle, XCircle, RotateCcw, RotateCw, ReceiptText, ExternalLink, KeyRound, AlertCircle, Lock, Calculator, Wrench } from 'lucide-react';
 import { uploadFile } from '../services/fileService';
 import Swal from 'sweetalert2';
 import type { DetalleOrdenTrabajo, CreateDetalleOrdenTrabajoData } from '../types/detalleOrdenTrabajo';
@@ -61,12 +61,36 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         ? preciosSeguros.filter(p => Number((p as any).idseguro || p.seguro?.id) === Number(activeSeguroId))
         : preciosSeguros;
 
+    const isCategoriaChaperia = (precio?: PrecioTaller | null, detalleObj?: DetalleOrdenTrabajo | null) => {
+        const catName = (precio?.categoria?.categoria_servicio || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (catName.includes('chaper')) return true;
+        const detCat = ((detalleObj?.precio_taller?.categoria as any)?.categoria_servicio || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return detCat.includes('chaper');
+    };
+
     const isCategoriaTercero = (precio?: PrecioTaller | null, detalleObj?: DetalleOrdenTrabajo | null) => {
-        if (detalleObj?.costo_tercero && Number(detalleObj.costo_tercero) > 0) return true;
+        if (isCategoriaChaperia(precio, detalleObj)) return false;
+        if (detalleObj?.costo_tercero && Number(detalleObj.costo_tercero) > 0 && !isCategoriaChaperia(precio, detalleObj)) return true;
         const catName = (precio?.categoria?.categoria_servicio || '').toLowerCase().trim();
         if (catName.includes('tercero')) return true;
         const detCat = ((detalleObj?.precio_taller?.categoria as any)?.categoria_servicio || '').toLowerCase().trim();
         return detCat.includes('tercero');
+    };
+
+    const getPersonalOpciones = (esChaperia: boolean) => {
+        if (esChaperia) {
+            const chapistas = personalList.filter(p => {
+                const area = (p.area?.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const tipo = (p.tipo || '').toLowerCase();
+                return area.includes('chaper') || tipo.includes('contrat');
+            });
+            return chapistas.length > 0 ? chapistas : personalList;
+        }
+        const mecanicos = personalList.filter(p => {
+            const area = (p.area?.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            return (area === 'mecanico' || area === 'mecanica') && !area.includes('jefe');
+        });
+        return mecanicos.length > 0 ? mecanicos : personalList;
     };
 
     const isTrabajoLiquidadoPlanilla = (d?: DetalleOrdenTrabajo | null) => {
@@ -226,15 +250,17 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             const precio = preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller));
             if (precio) {
                 const esTercero = isCategoriaTercero(precio);
+                const esChaperia = isCategoriaChaperia(precio);
+                const esExternoOObra = esTercero || esChaperia;
                 const selectedMec = personalList.find(p => String(p.id) === String(formData.idpersonal_mecanico));
                 const precioHoraUsar = selectedMec && Number(selectedMec.precio_hora) > 0
                     ? Number(selectedMec.precio_hora)
                     : Number(precio.precio_hora || 0);
                 const tiempoNum = Number(precio.tiempo_estimado || 0);
-                const costoTerceroVal = esTercero
+                const costoTerceroVal = esExternoOObra
                     ? (formData.costo_tercero > 0 ? formData.costo_tercero : (precio.total_costo ? Number(precio.total_costo) : 0))
                     : 0;
-                const totalCostoCalc = esTercero
+                const totalCostoCalc = esExternoOObra
                     ? costoTerceroVal
                     : Number((tiempoNum * precioHoraUsar).toFixed(2));
 
@@ -242,8 +268,8 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                     ...prev,
                     detalle: precio.detalle,
                     precio_unitario: Number(precio.precio),
-                    tiempo_estimado: esTercero ? '' : (precio.tiempo_estimado ? String(precio.tiempo_estimado) : ''),
-                    precio_hora: esTercero ? 0 : precioHoraUsar,
+                    tiempo_estimado: esExternoOObra ? '' : (precio.tiempo_estimado ? String(precio.tiempo_estimado) : ''),
+                    precio_hora: esExternoOObra ? 0 : precioHoraUsar,
                     costo_tercero: costoTerceroVal,
                     total_costo: totalCostoCalc
                 }));
@@ -257,13 +283,15 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         setFormData(prev => {
             const selectedPrecio = preciosTaller.find(p => String(p.id) === String(prev.idprecio_taller));
             const esTercero = isCategoriaTercero(selectedPrecio);
+            const esChaperia = isCategoriaChaperia(selectedPrecio);
+            const esExternoOObra = esTercero || esChaperia;
             const newPrecioHora = mecPrecioHora !== undefined ? mecPrecioHora : prev.precio_hora;
             const t = Number(prev.tiempo_estimado || 0);
             return {
                 ...prev,
                 idpersonal_mecanico: mecanicoId,
-                precio_hora: esTercero ? 0 : newPrecioHora,
-                total_costo: esTercero ? prev.costo_tercero : Number((t * Number(newPrecioHora || 0)).toFixed(2))
+                precio_hora: esExternoOObra ? 0 : newPrecioHora,
+                total_costo: esExternoOObra ? prev.costo_tercero : Number((t * Number(newPrecioHora || 0)).toFixed(2))
             };
         });
     };
@@ -293,13 +321,15 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             setPreciosTaller(tallerData.filter(p => p.estado === 'activo'));
             setPreciosSeguros(segurosData.filter(p => p.estado === 'activo'));
             setInventarios(inventariosData.filter((i: Inventario) => i.estado === 'activo'));
-            const soloMecanicos = personalData.filter((p: Personal) => {
+            const personalOperativo = personalData.filter((p: Personal) => {
                 if (p.estado !== 'activo') return false;
                 const area = (p.area?.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                // Solo cargo operativo "Mecánico" (excluye "Jefe de Mecánicos", "Asesor Técnico", etc.)
-                return (area === 'mecanico' || area === 'mecanica') && !area.includes('jefe');
+                const tipo = (p.tipo || '').toLowerCase();
+                const esMecanico = (area === 'mecanico' || area === 'mecanica') && !area.includes('jefe');
+                const esChapistaOContratista = area.includes('chaper') || tipo.includes('contrat');
+                return esMecanico || esChapistaOContratista;
             });
-            setPersonalList(soloMecanicos);
+            setPersonalList(personalOperativo);
 
             if (activeId) {
                 const [ordenData, detallesData] = await Promise.all([
@@ -489,14 +519,16 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
 
         const cant = formData.cantidad || 1;
         const esTercero = isCategoriaTercero(selectedPrecio);
-        const costoTerceroVal = esTercero ? Number(formData.costo_tercero || selectedPrecio.total_costo || 0) : 0;
+        const esChaperia = isCategoriaChaperia(selectedPrecio);
+        const esExternoOObra = esTercero || esChaperia;
+        const costoTerceroVal = esExternoOObra ? Number(formData.costo_tercero || selectedPrecio.total_costo || 0) : 0;
         const tiempoUsar = formData.tiempo_estimado !== '' && formData.tiempo_estimado !== undefined
             ? Number(formData.tiempo_estimado)
             : Number(selectedPrecio.tiempo_estimado || 0);
         const precioHoraUsar = formData.precio_hora !== undefined && formData.precio_hora !== null
             ? Number(formData.precio_hora)
             : Number(selectedPrecio.precio_hora || 0);
-        const totalCostoCalc = esTercero ? costoTerceroVal : Number((tiempoUsar * precioHoraUsar).toFixed(2));
+        const totalCostoCalc = esExternoOObra ? costoTerceroVal : Number((tiempoUsar * precioHoraUsar).toFixed(2));
 
         if (!activeId && onAddLocal) {
             normItems.forEach((item, idx) => {
@@ -601,14 +633,16 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
     const handleSelectPrecioTaller = async (precioId: string) => {
         const selectedPrecio = preciosTaller.find(p => String(p.id) === String(precioId));
         const esTercero = isCategoriaTercero(selectedPrecio);
-        const costoTerceroVal = esTercero ? (selectedPrecio?.total_costo ? Number(selectedPrecio.total_costo) : 0) : 0;
+        const esChaperia = isCategoriaChaperia(selectedPrecio);
+        const esExternoOObra = esTercero || esChaperia;
+        const costoTerceroVal = esExternoOObra ? (selectedPrecio?.total_costo ? Number(selectedPrecio.total_costo) : 0) : 0;
         setFormData(prev => ({
             ...prev,
             idprecio_taller: precioId,
             idprecio_seguro: '',
             id_inventario: '',
             costo_tercero: costoTerceroVal,
-            total_costo: esTercero ? costoTerceroVal : prev.total_costo
+            total_costo: esExternoOObra ? costoTerceroVal : prev.total_costo
         }));
     };
 
@@ -863,12 +897,23 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
             ? preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))
             : undefined;
         const esTercero = isCategoriaTercero(selectedPt);
-        const costoTerceroVal = esTercero ? Number(formData.costo_tercero || 0) : 0;
+        const esChaperia = isCategoriaChaperia(selectedPt);
+        const esExternoOObra = esTercero || esChaperia;
+        const costoTerceroVal = esExternoOObra ? Number(formData.costo_tercero || 0) : 0;
+
+        if (esChaperia && !formData.idpersonal_mecanico) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Asignar Chapista',
+                text: 'Por favor seleccione el chapista (contratista) asignado a este trabajo de chapería'
+            });
+            return;
+        }
 
         const total = formData.cantidad * formData.precio_unitario;
         const tiempoVal = formData.tiempo_estimado !== '' && formData.tiempo_estimado !== undefined ? Number(formData.tiempo_estimado) : 0;
         const precioHoraVal = formData.precio_hora !== undefined && formData.precio_hora !== null ? Number(formData.precio_hora) : 0;
-        const totalCostoCalc = esTercero ? costoTerceroVal : Number((tiempoVal * precioHoraVal).toFixed(2));
+        const totalCostoCalc = esExternoOObra ? costoTerceroVal : Number((tiempoVal * precioHoraVal).toFixed(2));
 
         const data: CreateDetalleOrdenTrabajoData = {
             idorden_trabajo: Number(activeId || 0),
@@ -1040,12 +1085,14 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const ptId = detalle.precio_taller?.id || (detalle as any).idprecio_taller || '';
         const ptFound = ptId ? preciosTaller.find(p => String(p.id) === String(ptId)) : detalle.precio_taller;
         const esTercero = isCategoriaTercero(ptFound, detalle);
+        const esChaperia = isCategoriaChaperia(ptFound, detalle);
+        const esExternoOObra = esTercero || esChaperia;
         const tiempoVal = detalle.tiempo_estimado ?? detalle.precio_taller?.tiempo_estimado ?? '';
         const precioHoraVal = Number(detalle.precio_hora ?? detalle.precio_taller?.precio_hora ?? 0);
         const costoTerceroVal = detalle.costo_tercero !== undefined && detalle.costo_tercero !== null && Number(detalle.costo_tercero) > 0
             ? Number(detalle.costo_tercero)
-            : (esTercero ? (Number(detalle.total_costo || 0) > 0 ? Number(detalle.total_costo) : Number(ptFound?.total_costo || 0)) : 0);
-        const costoCalc = esTercero
+            : (esExternoOObra ? (Number(detalle.total_costo || 0) > 0 ? Number(detalle.total_costo) : Number(ptFound?.total_costo || 0)) : 0);
+        const costoCalc = esExternoOObra
             ? costoTerceroVal
             : Number(detalle.total_costo ?? (Number(tiempoVal || 0) * precioHoraVal));
 
@@ -1093,7 +1140,9 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const ptId = editForm.idprecio_taller || editingDetalleMain.precio_taller?.id || (editingDetalleMain as any).idprecio_taller;
         const ptFound = ptId ? preciosTaller.find(p => String(p.id) === String(ptId)) : editingDetalleMain.precio_taller;
         const esTercero = isCategoriaTercero(ptFound, editingDetalleMain);
-        const costoTerceroVal = esTercero ? Number(editForm.costo_tercero || 0) : 0;
+        const esChaperia = isCategoriaChaperia(ptFound, editingDetalleMain);
+        const esExternoOObra = esTercero || esChaperia;
+        const costoTerceroVal = esExternoOObra ? Number(editForm.costo_tercero || 0) : 0;
         const isEditingInv = Boolean(editingDetalleMain.id_inventario || editingDetalleMain.inventario);
         const cantidadFinal = isEditingInv ? Number(editingDetalleMain.cantidad || 1) : editForm.cantidad;
         const total = cantidadFinal * editForm.precio_unitario;
@@ -1101,7 +1150,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
         const precioHoraNum = Number(editForm.precio_hora || 0);
         const invTarget = (editForm.id_inventario ? inventarios.find(i => Number(i.id) === Number(editForm.id_inventario)) : undefined) || editingDetalleMain.inventario;
         const costoInvCalc = invTarget?.precio_compra ? Number((Number(invTarget.precio_compra) * Number(cantidadFinal || 1)).toFixed(2)) : 0;
-        const totalCostoCalc = esTercero ? costoTerceroVal : (invTarget ? costoInvCalc : Number((tiempoNum * precioHoraNum).toFixed(2)));
+        const totalCostoCalc = esExternoOObra ? costoTerceroVal : (invTarget ? costoInvCalc : Number((tiempoNum * precioHoraNum).toFixed(2)));
 
         if (!activeId && onUpdateLocal && editingDetalleMainIndex !== null) {
             onUpdateLocal(editingDetalleMainIndex, {
@@ -2255,25 +2304,42 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                             />
                                         </div>
 
-                                        {/* Asignar Mecánico */}
-                                        <div className="md:col-span-4">
-                                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                                <User size={15} className="text-blue-600" />
-                                                Asignar Mecánico
-                                            </label>
-                                            <select
-                                                value={formData.idpersonal_mecanico}
-                                                onChange={(e) => handleMecanicoFormChange(e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-                                            >
-                                                <option value="">Sin asignar...</option>
-                                                {personalList.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.nombre} {p.paterno} {p.materno} {Number(p.precio_hora || 0) > 0 ? `(Bs ${Number(p.precio_hora).toFixed(2)}/h)` : (p.area ? `(${p.area.area})` : '')}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {/* Asignar Mecánico o Chapista */}
+                                        {(() => {
+                                            const selectedPt = preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller));
+                                            const esChaperia = isCategoriaChaperia(selectedPt);
+                                            const esTercero = isCategoriaTercero(selectedPt);
+                                            const opcionesPersonal = getPersonalOpciones(esChaperia);
+
+                                            if (esTercero) return null;
+
+                                            return (
+                                                <div className="md:col-span-4">
+                                                    <label className={`block mb-1 text-sm font-medium flex items-center gap-1 ${
+                                                        esChaperia ? 'text-indigo-700 dark:text-indigo-300 font-semibold' : 'text-gray-700 dark:text-gray-300'
+                                                    }`}>
+                                                        <User size={15} className={esChaperia ? 'text-indigo-600' : 'text-blue-600'} />
+                                                        {esChaperia ? 'Asignar Chapista (Contratista) *' : 'Asignar Mecánico'}
+                                                    </label>
+                                                    <select
+                                                        value={formData.idpersonal_mecanico}
+                                                        onChange={(e) => handleMecanicoFormChange(e.target.value)}
+                                                        className={`w-full px-3 py-2 rounded-lg border text-sm transition-colors ${
+                                                            esChaperia
+                                                                ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100 font-medium'
+                                                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                                                        } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                    >
+                                                        <option value="">{esChaperia ? '-- Seleccione Chapista Contratista --' : 'Sin asignar...'}</option>
+                                                        {opcionesPersonal.map(p => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.nombre} {p.paterno} {p.materno} {p.tipo ? `[${p.tipo}]` : ''} {p.area ? `(${p.area.area})` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Costo de Compra y Calculadora de Ganancia para Repuestos (Particular) */}
@@ -2364,6 +2430,56 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                             }}
                                                             placeholder="0.00"
                                                             className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-purple-400 dark:border-purple-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-base focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Banner de Chapería - Obra Vendida */}
+                                    {isCategoriaChaperia(preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))) && (
+                                        <div className="mb-4 p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border-2 border-indigo-400 dark:border-indigo-700 rounded-xl shadow-xs">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="p-2 bg-indigo-600 text-white rounded-lg shadow-xs shrink-0">
+                                                        <Wrench size={20} />
+                                                    </span>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200">
+                                                                Chapería • Obra Vendida
+                                                            </span>
+                                                            <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200">
+                                                                Pago Acordado al Chapista (Contratista)
+                                                            </h4>
+                                                        </div>
+                                                        <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-0.5">
+                                                            Si este chapista realiza varios ítems bajo un pago general por <strong>obra vendida</strong>, registre el monto pactado aquí y en los siguientes ítems deje el costo en 0.00 Bs.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="w-full sm:w-64 shrink-0">
+                                                    <label className="block mb-1 text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                                                        Costo Chapista / Obra Vendida (Bs)
+                                                    </label>
+                                                    <div className="relative">
+                                                        <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400" />
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={formData.costo_tercero}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    costo_tercero: val,
+                                                                    total_costo: val
+                                                                }));
+                                                            }}
+                                                            placeholder="0.00"
+                                                            className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-indigo-400 dark:border-indigo-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
                                                         />
                                                     </div>
                                                 </div>
@@ -2463,7 +2579,7 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                         </div>
                                     </div>
 
-                                    {!formData.id_inventario && !isCategoriaTercero(preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))) && (
+                                    {!formData.id_inventario && !isCategoriaTercero(preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))) && !isCategoriaChaperia(preciosTaller.find(p => String(p.id) === String(formData.idprecio_taller))) && (
                                         <div className="pt-3 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-center gap-6">
                                             <div className="w-48">
                                                 <label className="block mb-1 text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
@@ -2665,6 +2781,10 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                             {ptObj?.detalle}
                                                         </span>
                                                     </div>
+                                                ) : isCategoriaChaperia(ptObj, detalle) ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
+                                                        <Wrench size={11} /> Chapería
+                                                    </span>
                                                 ) : isCategoriaTercero(ptObj, detalle) ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold">
                                                         <ExternalLink size={11} /> Terceros
@@ -2704,6 +2824,15 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                         <span>Costo pagado al tercero: Bs. {Number(detalle.costo_tercero || detalle.total_costo).toFixed(2)}</span>
                                                     </div>
                                                 )}
+                                                {isCategoriaChaperia(ptObj, detalle) && (
+                                                    <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono mt-0.5 flex items-center gap-1">
+                                                        <span>
+                                                            {Number(detalle.costo_tercero || detalle.total_costo || 0) > 0
+                                                                ? `Obra Vendida Chapista: Bs. ${Number(detalle.costo_tercero || detalle.total_costo).toFixed(2)}`
+                                                                : '(Costo incluido en obra vendida)'}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className={`p-3 text-gray-700 dark:text-gray-200 ${isDescartado ? 'line-through text-gray-400' : ''}`}>{detalle.cantidad}</td>
                                             {isSeguro && (
@@ -2739,16 +2868,25 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                                 className={`w-full max-w-[200px] px-2 py-1 rounded border text-xs mb-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                                                                     isTrabajoLiquidadoPlanilla(detalle)
                                                                         ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 cursor-not-allowed'
+                                                                        : isCategoriaChaperia(ptObj, detalle)
+                                                                        ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200'
                                                                         : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                                                                 } disabled:opacity-75 disabled:cursor-not-allowed`}
                                                             >
-                                                                <option value="">-- Asignar Mecánico --</option>
-                                                                {personalList.map(p => (
+                                                                <option value="">{isCategoriaChaperia(ptObj, detalle) ? '-- Asignar Chapista --' : '-- Asignar Mecánico --'}</option>
+                                                                {getPersonalOpciones(isCategoriaChaperia(ptObj, detalle)).map(p => (
                                                                     <option key={p.id} value={p.id}>
-                                                                        {p.nombre} {p.paterno} {Number(p.precio_hora || 0) > 0 ? `(Bs ${Number(p.precio_hora).toFixed(2)}/h)` : ''}
+                                                                        {p.nombre} {p.paterno} {isCategoriaChaperia(ptObj, detalle) ? `[${p.tipo || 'Contratista'}]` : (Number(p.precio_hora || 0) > 0 ? `(Bs ${Number(p.precio_hora).toFixed(2)}/h)` : '')}
                                                                     </option>
                                                                 ))}
                                                             </select>
+                                                            {isCategoriaChaperia(ptObj, detalle) && (
+                                                                <div className="text-[10px] text-indigo-700 dark:text-indigo-300 font-mono font-medium">
+                                                                    {Number(detalle.costo_tercero || 0) > 0
+                                                                        ? `Obra: Bs ${Number(detalle.costo_tercero).toFixed(2)}`
+                                                                        : '(Incluido en obra vendida)'}
+                                                                </div>
+                                                            )}
                                                             {isTrabajoLiquidadoPlanilla(detalle) && (
                                                                 <div className="mt-1">
                                                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shadow-xs" title="Liquidado y pagado en planilla al mecánico">
@@ -3255,6 +3393,89 @@ const OrdenTrabajoDetalles = ({ ordenId, localDetalles, onAddLocal, onUpdateLoca
                                                     className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-purple-400 dark:border-purple-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                                                 />
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : isCategoriaChaperia(preciosTaller.find(p => String(p.id) === String(editForm.idprecio_taller)), editingDetalleMain) ? (
+                                <div className="space-y-4">
+                                    <div className="p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border-2 border-indigo-400 dark:border-indigo-700 rounded-xl shadow-xs">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="p-2 bg-indigo-600 text-white rounded-lg shadow-xs shrink-0">
+                                                    <Wrench size={18} />
+                                                </span>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200">
+                                                            Chapería • Obra Vendida
+                                                        </span>
+                                                        <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200">
+                                                            Pago Acordado al Chapista (Contratista)
+                                                        </h4>
+                                                    </div>
+                                                    <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-0.5">
+                                                        Si este chapista realiza varios ítems bajo un pago general por <strong>obra vendida</strong>, registre el monto pactado aquí y en los siguientes ítems deje el costo en 0.00 Bs.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="w-full sm:w-60 shrink-0">
+                                                <label className="block mb-1 text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                                                    Costo Chapista / Obra Vendida (Bs)
+                                                </label>
+                                                <div className="relative">
+                                                    <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400" />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        value={editForm.costo_tercero}
+                                                        onChange={(e) => {
+                                                            const val = parseFloat(e.target.value) || 0;
+                                                            setEditForm(prev => ({
+                                                                ...prev,
+                                                                costo_tercero: val,
+                                                                total_costo: val
+                                                            }));
+                                                        }}
+                                                        className="w-full pl-9 pr-3 py-1.5 rounded-lg border-2 border-indigo-400 dark:border-indigo-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="flex items-center gap-1 mb-1 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                                                <User size={14} className="text-indigo-600" />
+                                                <span>Chapista Asignado (Contratista) *</span>
+                                            </label>
+                                            <select
+                                                disabled={isTrabajoLiquidadoPlanilla(editingDetalleMain)}
+                                                value={editForm.idpersonal_mecanico}
+                                                onChange={(e) => setEditForm({ ...editForm, idpersonal_mecanico: e.target.value })}
+                                                className="w-full px-3 py-2 rounded-lg border border-indigo-300 dark:border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="">-- Seleccione Chapista Contratista --</option>
+                                                {getPersonalOpciones(true).map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.nombre} {p.paterno} {p.materno} {p.tipo ? `[${p.tipo}]` : ''} {p.area ? `(${p.area.area})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Estado del Trabajo
+                                            </label>
+                                            <select
+                                                disabled={isTrabajoLiquidadoPlanilla(editingDetalleMain)}
+                                                value={editForm.estado_trabajo}
+                                                onChange={(e) => setEditForm({ ...editForm, estado_trabajo: e.target.value as any })}
+                                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="confirmado">Confirmado por el Cliente</option>
+                                                <option value="descartado" disabled={isTrabajoLiquidadoPlanilla(editingDetalleMain)}>Descartado por el Cliente</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>

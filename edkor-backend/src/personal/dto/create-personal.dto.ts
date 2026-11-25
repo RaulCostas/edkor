@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsNumber, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString, ValidateIf } from 'class-validator';
 
 export class CreatePersonalDto {
     @IsString()
@@ -10,13 +10,14 @@ export class CreatePersonalDto {
     paterno: string;
 
     @IsString()
-    @IsNotEmpty()
-    materno: string;
+    @IsOptional()
+    materno?: string;
 
     @IsString()
     @IsNotEmpty()
     ci: string;
 
+    @ValidateIf((o) => o.fecha_nacimiento && String(o.fecha_nacimiento).trim() !== '')
     @IsDateString()
     @IsOptional()
     fecha_nacimiento?: string;
@@ -45,10 +46,10 @@ export class CreatePersonalDto {
     @IsNotEmpty()
     tipo: string;
 
-    @IsString()
     @IsNotEmpty()
     areaId: string;
 
+    @ValidateIf((o) => o.fecha_ingreso && String(o.fecha_ingreso).trim() !== '')
     @IsDateString()
     @IsOptional()
     fecha_ingreso?: string;

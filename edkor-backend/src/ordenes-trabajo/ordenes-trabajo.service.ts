@@ -595,8 +595,10 @@ export class OrdenesTrabajoService {
                     ? Number((tiempoEst * precioHora).toFixed(2))
                     : Number(row.pt_total_costo || 0);
 
+            const catNombre = String(row.pt_categoria || '').toLowerCase();
             const esTrabajoTercero =
-                Boolean(row.pt_categoria && String(row.pt_categoria).toLowerCase().includes('tercero')) ||
+                catNombre.includes('tercero') ||
+                catNombre.includes('chaper') ||
                 Number(row.costo_tercero) > 0;
             const costoTercero = Number(row.costo_tercero) > 0
                 ? Number(row.costo_tercero)

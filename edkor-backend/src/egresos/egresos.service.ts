@@ -130,27 +130,35 @@ export class EgresosService {
                     SUM(
                         CASE 
                             WHEN d.costo_tercero > 0 THEN d.costo_tercero
-                            WHEN cat.categoria_servicio ILIKE '%tercero%' AND d.total_costo > 0 THEN d.total_costo
-                            WHEN cat.categoria_servicio ILIKE '%tercero%' AND pt.total_costo > 0 THEN pt.total_costo
+                            WHEN (cat.categoria_servicio ILIKE '%tercero%' OR cat.categoria_servicio ILIKE '%chaper%') AND d.total_costo > 0 THEN d.total_costo
+                            WHEN (cat.categoria_servicio ILIKE '%tercero%' OR cat.categoria_servicio ILIKE '%chaper%') AND pt.total_costo > 0 THEN pt.total_costo
                             ELSE 0 
                         END
                     ) AS total_costo_terceros,
                     json_agg(
                         json_build_object(
                             'id', d.id,
-                            'detalle', COALESCE(d.detalle, pt.detalle, 'Trabajo Externo'),
+                            'detalle', COALESCE(d.detalle, pt.detalle, 'Trabajo Externo / Chapería'),
                             'costo_tercero', CASE 
                                 WHEN d.costo_tercero > 0 THEN d.costo_tercero
-                                WHEN cat.categoria_servicio ILIKE '%tercero%' AND d.total_costo > 0 THEN d.total_costo
-                                WHEN cat.categoria_servicio ILIKE '%tercero%' AND pt.total_costo > 0 THEN pt.total_costo
+                                WHEN (cat.categoria_servicio ILIKE '%tercero%' OR cat.categoria_servicio ILIKE '%chaper%') AND d.total_costo > 0 THEN d.total_costo
+                                WHEN (cat.categoria_servicio ILIKE '%tercero%' OR cat.categoria_servicio ILIKE '%chaper%') AND pt.total_costo > 0 THEN pt.total_costo
                                 ELSE 0 
-                            END
+                            END,
+                            'personal_id', p.id,
+                            'personal_nombre', CASE 
+                                WHEN p.id IS NOT NULL THEN TRIM(CONCAT(p.nombre, ' ', COALESCE(p.paterno, '')))
+                                ELSE NULL 
+                            END,
+                            'personal_tipo', p.tipo,
+                            'categoria', cat.categoria_servicio
                         )
                     ) AS trabajos
                 FROM detalle_orden_trabajo d
                 LEFT JOIN precios_taller pt ON pt.id = d.idprecio_taller
                 LEFT JOIN categoria_servicio cat ON cat.id = pt.idcategoria_servicio
-                WHERE (d.costo_tercero > 0 OR cat.categoria_servicio ILIKE '%tercero%')
+                LEFT JOIN personal p ON p.id = d.idpersonal_mecanico
+                WHERE (d.costo_tercero > 0 OR cat.categoria_servicio ILIKE '%tercero%' OR cat.categoria_servicio ILIKE '%chaper%')
                   AND (d.estado_trabajo IS NULL OR d.estado_trabajo != 'descartado')
                 GROUP BY d.idorden_trabajo
             ) terceros ON terceros.idorden_trabajo = o.id
@@ -173,9 +181,16 @@ export class EgresosService {
             const trabajos = Array.isArray(r.trabajos) ? r.trabajos : [];
             const nombresTrabajos = trabajos
                 .filter((t: any) => Number(t.costo_tercero) > 0 || t.detalle)
-                .map((t: any) => t.detalle)
+                .map((t: any) => {
+                    if (t.personal_nombre) {
+                        return `${t.detalle} (${t.personal_tipo === 'Contratista' ? 'Contratista' : 'Chapista'}: ${t.personal_nombre})`;
+                    }
+                    return t.detalle;
+                })
                 .filter(Boolean)
                 .join(', ');
+
+            const tieneChaperia = trabajos.some((t: any) => (t.categoria || '').toLowerCase().includes('chaper') || (t.personal_nombre && t.personal_tipo === 'Contratista'));
 
             return {
                 id: Number(r.id),
@@ -189,7 +204,7 @@ export class EgresosService {
                 saldo_terceros: saldoTerceros,
                 trabajos,
                 detalle_sugerido: nombresTrabajos
-                    ? `Pago Terceros OT #${r.id} (${r.vehiculo_placa || 'S/P'}): ${nombresTrabajos}`
+                    ? `Pago ${tieneChaperia ? 'Chapería / ' : ''}Terceros OT #${r.id} (${r.vehiculo_placa || 'S/P'}): ${nombresTrabajos}`
                     : `Gasto OT #${r.id} (${r.vehiculo_placa || 'S/P'})`
             };
         });

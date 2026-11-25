@@ -13,6 +13,7 @@ import { StandardExportToolbar } from '../common/StandardExportToolbar';
 import { StandardPrintHeader, StandardPrintFooter } from '../common/StandardPrintHeader';
 import { API_BASE_URL } from '../../config';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { getComprobantesList } from '../../utils/comprobanteUtils';
 
 const EgresoList = () => {
     const [egresos, setEgresos] = useState<Egreso[]>([]);
@@ -317,18 +318,23 @@ const EgresoList = () => {
                                             <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm">
                                                 {egreso.formaPago?.forma_pago}
                                             </td>
-                                            <td className="px-6 py-4 flex gap-2 justify-center">
-                                                {egreso.imagen && (
-                                                    <a
-                                                        href={`${API_BASE_URL}/files/${egreso.imagen}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center justify-center"
-                                                        title="Ver Comprobante / Factura"
-                                                    >
-                                                        <ExternalLink size={16} />
-                                                    </a>
-                                                )}
+                                            <td className="px-6 py-4 flex flex-wrap gap-1.5 justify-center items-center">
+                                                {(() => {
+                                                    const comps = getComprobantesList(egreso.imagen);
+                                                    return comps.map((comp, cIdx) => (
+                                                        <a
+                                                            key={cIdx}
+                                                            href={`${API_BASE_URL}/files/${comp}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-1 text-xs font-semibold"
+                                                            title={`Ver Comprobante ${comps.length > 1 ? `#${cIdx + 1}` : ''} / Factura`}
+                                                        >
+                                                            <ExternalLink size={15} />
+                                                            {comps.length > 1 && <span>#{cIdx + 1}</span>}
+                                                        </a>
+                                                    ));
+                                                })()}
                                                 <button
                                                     onClick={() => handleEdit(egreso)}
                                                     className="p-2 bg-amber-400 hover:bg-amber-500 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"

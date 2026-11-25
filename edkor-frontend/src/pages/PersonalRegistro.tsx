@@ -183,11 +183,13 @@ const PersonalRegistro = () => {
             setShowModal(false);
             setEditingPersonal(null);
             fetchPersonal();
-        } catch (err) {
+        } catch (err: any) {
+            console.error('Error al guardar personal:', err);
+            const msg = err?.response?.data?.message || err?.message || 'Error al guardar';
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: 'Error al guardar'
+                title: 'Error al guardar',
+                text: Array.isArray(msg) ? msg.join(', ') : String(msg)
             });
             throw err;
         }

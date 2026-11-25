@@ -105,26 +105,7 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
   const [areas, setAreas] = useState<AreaPersonal[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Tipos personal list
-  const [tiposPersonal, setTiposPersonal] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("custom_tipos_personal");
-      const base = ["Planta", "Contratista"];
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return Array.from(new Set([...base, ...parsed]));
-        }
-      }
-      return base;
-    } catch {
-      return ["Planta", "Contratista"];
-    }
-  });
-
-  // Modal states for Tipo and Area
-  const [showModalTipo, setShowModalTipo] = useState(false);
-  const [nuevoTipoNombre, setNuevoTipoNombre] = useState("");
+  const TIPOS_PERSONAL = ["Planta", "Contratista"];
 
   const [showModalArea, setShowModalArea] = useState(false);
   const [nuevaAreaNombre, setNuevaAreaNombre] = useState("");
@@ -146,9 +127,6 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
     };
     fetchAreas();
     if (initialData) {
-      if (initialData.tipo && !tiposPersonal.includes(initialData.tipo)) {
-        setTiposPersonal((prev) => [...prev, initialData.tipo]);
-      }
       const parsed = parsePersonalPhone(initialData.celular, initialData.telefono);
       setPhoneCountryCode(parsed.countryCode);
       setPhoneNumber(parsed.number);
@@ -209,35 +187,6 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
     }
   };
 
-  const handleCreateTipo = (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const clean = nuevoTipoNombre.trim();
-    if (!clean) return;
-    const updated = Array.from(new Set([...tiposPersonal, clean]));
-    setTiposPersonal(updated);
-    try {
-      localStorage.setItem(
-        "custom_tipos_personal",
-        JSON.stringify(updated.filter((t) => t !== "Planta" && t !== "Contratista"))
-      );
-    } catch (err) {
-      console.error(err);
-    }
-    setFormData((prev) => ({ ...prev, tipo: clean }));
-    setShowModalTipo(false);
-    setNuevoTipoNombre("");
-    Swal.fire({
-      icon: "success",
-      title: "Tipo de Personal Creado",
-      text: `Se agregó "${clean}" correctamente.`,
-      timer: 1500,
-      showConfirmButton: false,
-    });
-  };
-
   const handleCreateArea = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
@@ -273,14 +222,51 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.nombre?.trim()) {
+      Swal.fire("Campo requerido", "Por favor ingrese el Nombre", "warning");
+      return;
+    }
+    if (!formData.paterno?.trim()) {
+      Swal.fire("Campo requerido", "Por favor ingrese el Apellido Paterno", "warning");
+      return;
+    }
+    if (!formData.ci?.trim()) {
+      Swal.fire("Campo requerido", "Por favor ingrese el Carnet de Identidad (CI)", "warning");
+      return;
+    }
+    if (!formData.areaId) {
+      Swal.fire("Campo requerido", "Por favor seleccione el Área del personal", "warning");
+      return;
+    }
+    if (!formData.tipo) {
+      Swal.fire("Campo requerido", "Por favor seleccione el Tipo de personal (Planta / Contratista)", "warning");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const cleanDigits = (phoneNumber || "").replace(/[^0-9]/g, "");
       const fullCelular = cleanDigits ? `${phoneCountryCode}${cleanDigits}` : "";
-      await onSubmit({
+
+      const payload: any = {
         ...formData,
         celular: fullCelular,
-      });
+        fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : undefined,
+        fecha_ingreso: formData.fecha_ingreso ? formData.fecha_ingreso : undefined,
+        salario: formData.salario !== undefined && formData.salario !== null && String(formData.salario) !== ''
+          ? Number(formData.salario)
+          : 0,
+        precio_hora: formData.precio_hora !== undefined && formData.precio_hora !== null && String(formData.precio_hora) !== ''
+          ? Number(formData.precio_hora)
+          : undefined,
+        ci_anverso: formData.ci_anverso || undefined,
+        ci_reverso: formData.ci_reverso || undefined,
+        direccion: formData.direccion || undefined,
+        telefono: formData.telefono || undefined,
+      };
+
+      await onSubmit(payload);
     } catch (error) {
       console.error(error);
     } finally {
@@ -534,37 +520,24 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
           <label className="block mb-1 font-medium text-gray-700 dark:text-gray-300">
             Tipo Personal
           </label>
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="relative flex-1 min-w-0">
-              <Users
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none"
-                size={18}
-              />
-              <select
-                value={formData.tipo}
-                onChange={(e) =>
-                  setFormData({ ...formData, tipo: e.target.value })
-                }
-                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-[#3498db] text-sm font-medium"
-              >
-                {tiposPersonal.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setNuevoTipoNombre("");
-                setShowModalTipo(true);
-              }}
-              className="p-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center justify-center shrink-0"
-              title="Registrar nuevo Tipo de Personal"
+          <div className="relative">
+            <Users
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none"
+              size={18}
+            />
+            <select
+              value={formData.tipo}
+              onChange={(e) =>
+                setFormData({ ...formData, tipo: e.target.value })
+              }
+              className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-[#3498db] text-sm font-medium"
             >
-              <Plus className="w-4 h-4" />
-            </button>
+              {TIPOS_PERSONAL.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <div>
@@ -927,65 +900,6 @@ export const PersonalForm: React.FC<PersonalFormProps> = ({
       </div>
     </form>
 
-      {/* Modal: Nuevo Tipo de Personal */}
-      {showModalTipo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-100 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <span className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
-                  <Plus className="w-5 h-5" />
-                </span>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                  Nuevo Tipo de Personal
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowModalTipo(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
-                title="Cerrar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateTipo} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nombre del Tipo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="Ej: Pasante, Eventual, Administrativo, etc."
-                  value={nuevoTipoNombre}
-                  onChange={(e) => setNuevoTipoNombre(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-medium"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModalTipo(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5"
-                >
-                  <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span>Cancelar</span>
-                </button>
-                <button
-                  type="submit"
-                  disabled={!nuevoTipoNombre.trim()}
-                  className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Guardar Tipo</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal: Nueva Área de Personal */}
       {showModalArea && (

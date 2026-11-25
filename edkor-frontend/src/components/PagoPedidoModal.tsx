@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, FileText, DollarSign, CreditCard, Hash, Plus, Upload, Trash2, Save, Image as ImageIcon } from 'lucide-react';
+import { X, Calendar, FileText, DollarSign, CreditCard, Hash, Plus, Upload, Trash2, Save, Image as ImageIcon, RefreshCw, ExternalLink } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { getFormasPago, createFormaPago } from '../services/formaPagoService';
@@ -9,6 +9,7 @@ import { API_BASE_URL } from '../config';
 import type { FormaPago } from '../types/formaPago';
 import type { MaterialPedido } from '../types/materialPedido';
 import { getLocalDateString } from '../utils/dateUtils';
+import { getComprobantesList, serializeComprobantes } from '../utils/comprobanteUtils';
 
 export interface PagoPedidoItem {
     id: number;
@@ -42,8 +43,8 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
     const [moneda, setMoneda] = useState('Bolivianos');
     const [tc, setTc] = useState<number>(6.96); // Default TC
     const [idformaPago, setIdFormaPago] = useState('');
-    const [imagen, setImagen] = useState('');
-    const [uploadingImg, setUploadingImg] = useState(false);
+    const [comprobantes, setComprobantes] = useState<string[]>([]);
+    const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
     // Modal rápida para nueva Forma de Pago
     const [showModalFormaPago, setShowModalFormaPago] = useState(false);
@@ -60,7 +61,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
                 setMoneda(pagoToEdit.moneda || 'Bolivianos');
                 setTc(pagoToEdit.tc ? Number(pagoToEdit.tc) : 6.96);
                 setIdFormaPago(String(pagoToEdit.forma_pago?.id || ''));
-                setImagen(pagoToEdit.imagen || '');
+                setComprobantes(getComprobantesList(pagoToEdit.imagen));
             } else {
                 resetForm();
             }
@@ -84,29 +85,41 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
         setMoneda('Bolivianos');
         setTc(6.96);
         setIdFormaPago('');
-        setImagen('');
+        setComprobantes([]);
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploadingImg(true);
+    const handleComprobanteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files ? Array.from(e.target.files) : [];
+        if (files.length === 0) return;
+
+        const oversized = files.filter(f => f.size > 15 * 1024 * 1024);
+        if (oversized.length > 0) {
+            Swal.fire('Archivo muy grande', 'Cada archivo no debe exceder los 15MB', 'warning');
+            return;
+        }
+
+        setUploadingComprobante(true);
         try {
-            const filename = await uploadFile(file);
-            setImagen(filename);
+            const uploadedFilenames = await Promise.all(files.map(file => uploadFile(file)));
+            setComprobantes(prev => [...prev, ...uploadedFilenames]);
             Swal.fire({
                 icon: 'success',
-                title: 'Comprobante cargado',
-                text: 'La imagen se subió correctamente',
-                timer: 1200,
+                title: uploadedFilenames.length > 1 ? 'Comprobantes cargados' : 'Comprobante cargado',
+                text: uploadedFilenames.length > 1 ? `Se subieron ${uploadedFilenames.length} archivos correctamente` : 'El archivo se subió correctamente',
+                timer: 1500,
                 showConfirmButton: false,
             });
         } catch (err) {
-            console.error('Error subiendo comprobante:', err);
-            Swal.fire('Error', 'No se pudo subir la imagen del comprobante', 'error');
+            console.error('Error subiendo comprobante(s):', err);
+            Swal.fire('Error', 'No se pudieron subir los archivos del comprobante', 'error');
         } finally {
-            setUploadingImg(false);
+            setUploadingComprobante(false);
+            e.target.value = '';
         }
+    };
+
+    const handleRemoveComprobante = (indexToRemove: number) => {
+        setComprobantes(prev => prev.filter((_, idx) => idx !== indexToRemove));
     };
 
     const handleCreateFormaPago = async (e: React.FormEvent) => {
@@ -150,6 +163,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
         }
 
         try {
+            const serializedImagen = serializeComprobantes(comprobantes);
             if (pagoToEdit) {
                 await updatePagoPedido(pagoToEdit.id, {
                     idforma_pago: idformaPago,
@@ -158,7 +172,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
                     recibo: recibo || '',
                     moneda,
                     tc: moneda === 'Dólares' ? tc : undefined,
-                    imagen: imagen || undefined,
+                    imagen: serializedImagen,
                 });
 
                 Swal.fire({
@@ -178,7 +192,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
                     recibo: recibo || '',
                     moneda,
                     tc: moneda === 'Dólares' ? tc : undefined,
-                    imagen: imagen || undefined,
+                    imagen: serializedImagen,
                 });
 
                 Swal.fire({
@@ -340,50 +354,110 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
                         </div>
                     </div>
 
-                    {/* Subir Imagen de Factura / Recibo */}
+                    {/* Subir Comprobantes de Factura / Recibo (Imágenes o PDFs) */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Comprobante / Foto de Factura o Recibo
-                        </label>
-                        {imagen ? (
-                            <div className="relative border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-gray-50 dark:bg-gray-700/40 flex items-center justify-between">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <img
-                                        src={`${API_BASE_URL}/files/${imagen}`}
-                                        alt="Comprobante"
-                                        className="w-14 h-14 object-cover rounded-md border border-gray-200 dark:border-gray-600"
-                                        onError={(e) => {
-                                            (e.target as any).style.display = 'none';
-                                        }}
+                        <div className="flex items-center justify-between mb-1.5">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Comprobantes / Fotos de Factura o Recibo (Imagen o PDF)
+                            </label>
+                            {comprobantes.length > 0 && (
+                                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                                    {comprobantes.length} {comprobantes.length === 1 ? 'adjunto' : 'adjuntos'}
+                                </span>
+                            )}
+                        </div>
+
+                        {comprobantes.length > 0 ? (
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {comprobantes.map((comp, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm"
+                                        >
+                                            <div className="flex items-center gap-2.5 overflow-hidden">
+                                                {comp.toLowerCase().endsWith('.pdf') ? (
+                                                    <div className="w-10 h-10 flex-shrink-0 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">
+                                                        <FileText size={20} />
+                                                    </div>
+                                                ) : (
+                                                    <img
+                                                        src={`${API_BASE_URL}/files/${comp}`}
+                                                        alt={`Comprobante ${idx + 1}`}
+                                                        className="w-10 h-10 flex-shrink-0 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                                                        onError={(e) => {
+                                                            (e.target as any).style.display = 'none';
+                                                        }}
+                                                    />
+                                                )}
+                                                <div className="overflow-hidden">
+                                                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[130px]" title={comp}>
+                                                        {comp}
+                                                    </p>
+                                                    <a
+                                                        href={`${API_BASE_URL}/files/${comp}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1 font-medium"
+                                                    >
+                                                        <ExternalLink size={11} /> Ver #{idx + 1}
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveComprobante(idx)}
+                                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors ml-1.5"
+                                                title="Quitar este comprobante"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Botón para agregar más comprobantes */}
+                                <div className="relative border border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-500 rounded-lg p-2.5 text-center transition-colors bg-white dark:bg-gray-700/40">
+                                    <input
+                                        type="file"
+                                        multiple
+                                        accept="image/*,application/pdf"
+                                        onChange={handleComprobanteUpload}
+                                        disabled={uploadingComprobante}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
-                                    <div className="overflow-hidden">
-                                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{imagen}</p>
-                                        <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">✓ Archivo cargado</span>
+                                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                        {uploadingComprobante ? (
+                                            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
+                                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                Subiendo comprobantes...
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                                                    + Adjuntar más comprobantes (Imagen o PDF)
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setImagen('')}
-                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                    title="Quitar comprobante"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
                             </div>
                         ) : (
-                            <div className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 rounded-lg p-3 text-center transition-colors bg-white dark:bg-gray-700">
+                            <div className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-500 rounded-lg p-3 text-center transition-colors bg-white dark:bg-gray-700">
                                 <input
                                     type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={handleFileChange}
-                                    disabled={uploadingImg}
+                                    multiple
+                                    accept="image/*,application/pdf"
+                                    onChange={handleComprobanteUpload}
+                                    disabled={uploadingComprobante}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
                                 <div className="flex flex-col items-center justify-center gap-1">
-                                    {uploadingImg ? (
-                                        <div className="flex items-center gap-2 text-sm text-blue-600">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                            Subiendo comprobante...
+                                    {uploadingComprobante ? (
+                                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 font-medium py-1">
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                            Subiendo comprobantes...
                                         </div>
                                     ) : (
                                         <>
@@ -391,7 +465,7 @@ const PagoPedidoModal = ({ isOpen, onClose, onPaymentSuccess, pedido, pagoToEdit
                                             <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
                                                 Haz clic o arrastra la foto de la factura / recibo
                                             </p>
-                                            <p className="text-[10px] text-gray-400">PNG, JPG, JPEG o PDF</p>
+                                            <p className="text-[10px] text-gray-400">Soporta múltiples archivos PNG, JPG, JPEG o PDF hasta 15MB c/u</p>
                                         </>
                                     )}
                                 </div>

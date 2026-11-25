@@ -39,8 +39,18 @@ export class PersonalService {
             throw new NotFoundException(`AreaPersonal with ID ${createPersonalDto.areaId} not found`);
         }
 
+        const fechaNac = createPersonalDto.fecha_nacimiento && String(createPersonalDto.fecha_nacimiento).trim() !== ''
+            ? createPersonalDto.fecha_nacimiento
+            : null;
+        const fechaIng = createPersonalDto.fecha_ingreso && String(createPersonalDto.fecha_ingreso).trim() !== ''
+            ? createPersonalDto.fecha_ingreso
+            : null;
+
         const personal = this.personalRepository.create({
             ...createPersonalDto,
+            materno: createPersonalDto.materno || '',
+            fecha_nacimiento: fechaNac as any,
+            fecha_ingreso: fechaIng as any,
             area: area,
             sucursal: sucursalId ? { id: sucursalId } as any : null,
         });
@@ -74,9 +84,21 @@ export class PersonalService {
             area = foundArea;
         }
 
+        const updateData: any = { ...updatePersonalDto };
+        if (updateData.fecha_nacimiento !== undefined) {
+            updateData.fecha_nacimiento = updateData.fecha_nacimiento && String(updateData.fecha_nacimiento).trim() !== ''
+                ? updateData.fecha_nacimiento
+                : null;
+        }
+        if (updateData.fecha_ingreso !== undefined) {
+            updateData.fecha_ingreso = updateData.fecha_ingreso && String(updateData.fecha_ingreso).trim() !== ''
+                ? updateData.fecha_ingreso
+                : null;
+        }
+
         const personal = await this.personalRepository.preload({
             id: +id,
-            ...updatePersonalDto,
+            ...updateData,
             area: area,
         });
         if (!personal) {

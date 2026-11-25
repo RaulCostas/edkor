@@ -178,12 +178,12 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                   </div>
                 </div>
 
-                {/* 3.1 Costo Trabajos de Terceros */}
+                {/* 3.1 Costo Trabajos de Terceros / Chapería */}
                 {Boolean(data.resumen.costo_terceros && data.resumen.costo_terceros > 0) && (
                   <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3.5">
                     <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
                       <span className="text-xs font-bold uppercase tracking-wide">
-                        Trabajos de Terceros
+                        Terceros / Chapería
                       </span>
                       <ExternalLink size={16} />
                     </div>
@@ -191,7 +191,7 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                       {sym} {data.resumen.costo_terceros?.toFixed(2)}
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                      Costo externo (torno, alineado, etc.)
+                      Costo externo o contratista (obra vendida)
                     </div>
                   </div>
                 )}
@@ -327,9 +327,15 @@ const UtilidadOrdenModal = ({ ordenId, onClose }: UtilidadOrdenModalProps) => {
                             </td>
                             <td className="py-2 px-3 text-gray-700 dark:text-gray-300">
                               {srv.es_tercero ? (
-                                <span className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
-                                  Trabajo Externo / Tercero
-                                </span>
+                                srv.tiene_mecanico ? (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
+                                    <Wrench size={12} /> {srv.mecanico} (Chapista/Contratista)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
+                                    Trabajo Externo / Tercero
+                                  </span>
+                                )
                               ) : srv.tiene_mecanico ? (
                                 <span className="font-medium">{srv.mecanico}</span>
                               ) : (
